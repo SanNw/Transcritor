@@ -45,6 +45,19 @@
   box-sizing: border-box;
 }
 
+:focus-visible {
+  outline: 2px solid var(--dourado);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Garante que [hidden] vença qualquer `display` definido por classe
    (ex.: .overlay, .options-row), independentemente da ordem no cascade. */
 [hidden] {
@@ -91,12 +104,23 @@ body {
 .ui-lang-select {
   flex-shrink: 0;
   font-family: "Montserrat", sans-serif;
-  font-size: 13px;
-  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: var(--space-2) var(--space-3);
   border-radius: 6px;
-  border: 1px solid var(--border, #B9974D);
-  background: var(--surface, #fff);
-  color: inherit;
+  border: 1.5px solid var(--vinho);
+  background: transparent;
+  color: var(--vinho);
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ui-lang-select {
+    color: #d98a92;
+    border-color: #d98a92;
+  }
 }
 
 .crest {
@@ -304,6 +328,7 @@ body {
 }
 
 .job {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -311,6 +336,30 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: var(--space-3) var(--space-4);
+  isolation: isolate;
+}
+
+/* Assinatura visual: cada job lido como uma folha de manuscrito, com duas
+   páginas soltas por baixo — reforça a metáfora "documento vira páginas". */
+.job::before,
+.job::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  z-index: -1;
+}
+
+.job::before {
+  transform: rotate(-1.1deg) translateY(2px);
+  opacity: 0.65;
+}
+
+.job::after {
+  transform: rotate(0.9deg) translateY(4px);
+  opacity: 0.35;
 }
 
 .job-icon {
@@ -498,4 +547,68 @@ body {
 
 .settings-feedback.error {
   color: var(--error);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--space-5) var(--space-3) var(--space-6);
+  }
+
+  .masthead {
+    flex-wrap: wrap;
+  }
+
+  .masthead-text h1 {
+    font-size: 24px;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dropzone {
+    padding: var(--space-5) var(--space-3);
+  }
+
+  .options-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .options select {
+    width: 100%;
+  }
+
+  .toolbar {
+    justify-content: stretch;
+  }
+
+  .toolbar .btn {
+    width: 100%;
+  }
+
+  .job {
+    flex-wrap: wrap;
+  }
+
+  .job-info {
+    min-width: 100%;
+    order: 1;
+  }
+
+  .job-icon {
+    order: 0;
+  }
+
+  .job-download {
+    order: 2;
+    width: 100%;
+    text-align: center;
+  }
+
+  .settings-panel {
+    padding: var(--space-4);
+  }
 }
