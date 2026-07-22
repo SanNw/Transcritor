@@ -1,0 +1,15 @@
+Antes de continuar
+-------------------
+
+O Transcritor usa o Tesseract OCR como motor de reconhecimento de texto
+local e gratuito. Ele NÃO é instalado por este instalador.
+
+Se o Tesseract ainda não estiver instalado nesta máquina, o próprio
+Transcritor detecta isso na primeira execução e mostra o link e as
+instruções de instalação (https://github.com/UB-Mannheim/tesseract/wiki).
+
+Você também pode usar o Transcritor sem o Tesseract, desde que configure
+uma chave de API de IA (Anthropic Claude, OpenAI ou Google Gemini) nas
+Configurações do programa — nesse caso a IA faz o papel de motor de OCR.
+
+Clique em Avançar para continuar a instalação.

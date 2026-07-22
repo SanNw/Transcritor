@@ -18,6 +18,15 @@ const saveSettingsBtn = document.getElementById("save-settings");
 const settingsOverlay = document.getElementById("settings-overlay");
 const settingsFeedback = document.getElementById("settings-feedback");
 
+const dependencyBanner = document.getElementById("dependency-banner");
+const dependencyNote = document.getElementById("dependency-note");
+const dependencyCommand = document.getElementById("dependency-command");
+const dependencyLink = document.getElementById("dependency-link");
+const dependencyFeedback = document.getElementById("dependency-feedback");
+const copyCommandBtn = document.getElementById("copy-command");
+const autoInstallBtn = document.getElementById("auto-install");
+const recheckBtn = document.getElementById("recheck-dependency");
+
 const jobElements = new Map();
 const pollTimers = new Map();
 
@@ -314,6 +323,65 @@ async function loadExistingJobs() {
   }
 }
 
+/* ---------- Checagem de dependências (Tesseract) ---------- */
+
+async function checkDependencies() {
+  try {
+    const response = await fetch("/api/system-check");
+    if (!response.ok) return;
+    const info = await response.json();
+
+    if (info.tesseract_installed) {
+      dependencyBanner.hidden = true;
+      return;
+    }
+
+    const hint = info.install_hint || {};
+    dependencyBanner.hidden = false;
+    dependencyNote.textContent = hint.note || "";
+    dependencyCommand.textContent = hint.command || "Consulte a documentação do seu sistema.";
+    dependencyLink.href = hint.url || "#";
+    autoInstallBtn.hidden = !hint.auto_installable;
+    dependencyFeedback.textContent = "";
+    dependencyFeedback.classList.remove("error");
+  } catch {
+    // silencioso: sem checagem, assume que está tudo certo
+  }
+}
+
+copyCommandBtn.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(dependencyCommand.textContent);
+    dependencyFeedback.textContent = "Comando copiado.";
+    dependencyFeedback.classList.remove("error");
+  } catch {
+    dependencyFeedback.textContent = "Não foi possível copiar automaticamente — selecione o texto manualmente.";
+    dependencyFeedback.classList.add("error");
+  }
+});
+
+recheckBtn.addEventListener("click", checkDependencies);
+
+autoInstallBtn.addEventListener("click", async () => {
+  autoInstallBtn.disabled = true;
+  dependencyFeedback.textContent = "Instalando… isso pode levar alguns minutos.";
+  dependencyFeedback.classList.remove("error");
+  try {
+    const response = await fetch("/api/system-check/install", { method: "POST" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.detail || "Falha na instalação automática.");
+
+    dependencyFeedback.textContent = "Instalado com sucesso!";
+    await checkDependencies();
+  } catch (error) {
+    dependencyFeedback.textContent = error.message;
+    dependencyFeedback.classList.add("error");
+  } finally {
+    autoInstallBtn.disabled = false;
+  }
+});
+
 updateOptionsVisibility();
 loadSettings();
 loadExistingJobs();
+checkDependencies();

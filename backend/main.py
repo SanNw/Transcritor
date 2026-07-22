@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import subprocess
 import uuid
 import zipfile
 from dataclasses import dataclass, field
@@ -21,6 +22,7 @@ from docx_builder import build_docx, build_docx_from_text
 from ocr import extract_pages
 from paths import FRONTEND_DIR, OUTPUT_DIR, UPLOAD_DIR
 from settings_store import PROVIDERS, load_settings, masked_settings, save_settings
+from system_check import check_system
 
 SUPPORTED_EXTENSIONS = {".pdf", ".epub", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB
@@ -294,6 +296,37 @@ async def get_settings() -> dict:
 async def update_settings(payload: SettingsUpdate) -> dict:
     save_settings(payload.model_dump(exclude_none=True))
     return masked_settings()
+
+
+@app.get("/api/system-check")
+async def system_check() -> dict:
+    return check_system()
+
+
+@app.post("/api/system-check/install")
+async def install_tesseract() -> dict:
+    info = check_system()
+    if info["tesseract_installed"]:
+        return info
+
+    hint = info.get("install_hint", {})
+    if not hint.get("auto_installable") or not hint.get("command"):
+        raise HTTPException(
+            status_code=400,
+            detail="Instalação automática não disponível neste sistema. Rode o comando manualmente.",
+        )
+
+    try:
+        result = subprocess.run(
+            hint["command"], shell=True, capture_output=True, text=True, timeout=300
+        )
+    except subprocess.SubprocessError as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao instalar: {exc}") from exc
+
+    if result.returncode != 0:
+        raise HTTPException(status_code=500, detail=f"Instalação falhou: {result.stderr[-2000:]}")
+
+    return check_system()
 
 
 if FRONTEND_DIR.exists():

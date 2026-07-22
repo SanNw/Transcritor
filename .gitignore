@@ -3,3 +3,9 @@ __pycache__/
 .venv/
 venv/
 backend/data/
+backend/.venv-build/
+backend/build/
+backend/dist/
+backend/*.spec
+dist-packages/
+packaging/Transcritor.AppDir/

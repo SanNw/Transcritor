@@ -42,6 +42,31 @@
       <button id="open-settings" class="btn btn-secondary settings-btn" type="button">Configurações de IA</button>
     </header>
 
+    <div id="dependency-banner" class="dependency-banner" hidden>
+      <div class="ornament" role="presentation">
+        <span class="ornament-line"></span>
+        <span class="ornament-diamond"></span>
+        <span class="ornament-line"></span>
+      </div>
+      <h2>Tesseract OCR não encontrado</h2>
+      <p>
+        O motor de OCR local não está instalado nesta máquina. Você ainda pode usar o motor de
+        IA (se tiver uma chave configurada), mas o Tesseract é necessário para o OCR local
+        gratuito.
+      </p>
+      <p class="dependency-note" id="dependency-note"></p>
+      <div class="dependency-command-row">
+        <code id="dependency-command" class="dependency-command"></code>
+        <button id="copy-command" class="btn btn-secondary" type="button">Copiar</button>
+      </div>
+      <div class="settings-actions">
+        <a id="dependency-link" class="btn btn-secondary" href="#" target="_blank" rel="noopener">Ver documentação</a>
+        <button id="auto-install" class="btn btn-primary" type="button" hidden>Instalar automaticamente</button>
+        <button id="recheck-dependency" class="btn btn-primary" type="button">Já instalei, verificar de novo</button>
+      </div>
+      <p class="settings-feedback" id="dependency-feedback" aria-live="polite"></p>
+    </div>
+
     <main>
       <form id="upload-form" class="dropzone">
         <input

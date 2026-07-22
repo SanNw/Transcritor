@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Transcritor
+GenericName=Transcritor de livros e documentos
+Comment=Transcreve livros, revistas, PDFs e EPUBs em .docx
+Exec=transcritor
+Icon=transcritor
+Terminal=false
+Categories=Office;Utility;
+StartupNotify=false
