@@ -23,7 +23,8 @@ else:
 
 UPLOAD_DIR = DATA_DIR / "uploads"
 OUTPUT_DIR = DATA_DIR / "outputs"
+TESSDATA_DIR = DATA_DIR / "tessdata"
 CONFIG_PATH = DATA_DIR / "config.json"
 
-for directory in (UPLOAD_DIR, OUTPUT_DIR):
+for directory in (UPLOAD_DIR, OUTPUT_DIR, TESSDATA_DIR):
     directory.mkdir(parents=True, exist_ok=True)

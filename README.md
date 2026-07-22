@@ -19,13 +19,19 @@ escaneados/fotografados — em arquivos **.docx**.
   ter parte digital e parte escaneada sem configuração extra.
 - Dá para transcrever vários arquivos e depois baixar tudo de uma vez em um
   `.zip`.
+- Interface disponível em Português, English e Español (detecta o idioma do
+  navegador automaticamente). O idioma do CONTEÚDO (documento/áudio) é outro
+  seletor, com mais de 20 idiomas e detecção automática por padrão — a
+  transcrição preserva o idioma original, nunca traduz sozinha. Ver seção
+  [Idiomas](#idiomas).
 - Roda como app web local (navegador) ou como app desktop com janela própria.
 
 ## Instalação
 
 Se o Tesseract OCR não estiver instalado, o próprio Transcritor detecta isso
 na primeira execução e mostra o comando certo para o seu sistema — não
-precisa instalar antes.
+precisa instalar antes. No Windows e no macOS, dá pra instalar com um clique
+direto pela interface (ver "Detecção automática do Tesseract" abaixo).
 
 ### Opção 1 — pacote pronto (recomendado)
 
@@ -72,6 +78,45 @@ Pré-requisito nesse modo manual: Python 3.10+ e, opcionalmente, o
 (`sudo apt-get install tesseract-ocr tesseract-ocr-por` no Ubuntu/Debian,
 `brew install tesseract tesseract-lang` no macOS, ou o instalador oficial no
 Windows — https://github.com/UB-Mannheim/tesseract/wiki).
+
+### Detecção automática do Tesseract
+
+Quando o Tesseract não é encontrado, o botão "Instalar automaticamente" na
+interface tenta:
+
+- **Windows**: `winget install -e --id UB-Mannheim.TesseractOCR --silent
+  --accept-package-agreements --accept-source-agreements` — baixa direto do
+  GitHub Releases da UB Mannheim (não do site deles, que pode ser instável).
+  Requer o `winget` (App Installer), já vem por padrão na maioria das
+  instalações do Windows 10/11.
+- **macOS**: `brew install tesseract tesseract-lang` (requer o
+  [Homebrew](https://brew.sh)).
+- **Linux**: não é automático (mostra o comando `apt` certo) — instalação de
+  pacote de sistema geralmente exige `sudo`, mais delicado de automatizar
+  com segurança de dentro do app.
+
+Se o `winget`/`brew` não estiverem disponíveis, ou em qualquer outro sistema,
+a interface sempre mostra o link para o instalador oficial como alternativa
+manual.
+
+**Importante sobre PATH no Windows**: instaladores (winget ou o `.exe`
+oficial) atualizam o PATH do sistema, mas um processo já em execução (como o
+próprio Transcritor, se já estiver aberto) não enxerga essa mudança até
+reiniciar. Para contornar isso sem exigir reinício, o Transcritor também
+checa diretamente o caminho de instalação padrão
+(`C:\Program Files\Tesseract-OCR\tesseract.exe`) quando o PATH não resolve —
+funciona imediatamente após a instalação, sem precisar fechar e abrir o app
+de novo (ver `find_tesseract()` em `backend/system_check.py`).
+
+**Pacotes de idioma**: em vez de depender do que o instalador do sistema
+trouxe (o pacote do winget, por exemplo, só vem com inglês por padrão), o
+Transcritor baixa os arquivos `.traineddata` de cada idioma sob demanda do
+repositório oficial
+[`tessdata_fast`](https://github.com/tesseract-ocr/tessdata_fast) na
+primeira vez que são usados, guardando em `~/.transcritor/tessdata`
+(produção) ou `backend/data/tessdata` (dev) — não na pasta de instalação do
+Tesseract, que normalmente não é gravável sem privilégio de administrador
+(ver `ensure_tessdata_language()` em `backend/system_check.py`).
 
 ## Integração com IA (opcional)
 
@@ -152,6 +197,33 @@ local, o `ffmpeg` decodifica praticamente qualquer contêiner; com a IA em
 nuvem, o suporte exato a certos codecs/contêineres depende do que a API do
 provedor aceita no momento (MP3/WAV/FLAC/M4A têm compatibilidade mais ampla
 que MKV).
+
+## Idiomas
+
+O Transcritor foi pensado para usuários do mundo inteiro, com dois seletores
+de idioma independentes:
+
+- **Idioma da interface** (canto superior direito): traduz os textos do app
+  (botões, rótulos, mensagens) — hoje em Português, English e Español,
+  detectado automaticamente do navegador na primeira visita (com opção de
+  trocar manualmente, persistida por navegador). Ver `frontend/i18n.js` —
+  adicionar um novo idioma de interface é só acrescentar uma entrada lá.
+- **Idioma do conteúdo** (no formulário de envio): o idioma do documento ou
+  áudio sendo transcrito — não confundir com o idioma da interface. Padrão:
+  **detecção automática** (o motor de IA ou o Whisper identificam sozinhos),
+  sempre preservando o idioma original — a transcrição nunca traduz, a menos
+  que você peça isso explicitamente via pós-processamento personalizado. O
+  Tesseract é a exceção: como não detecta idioma sozinho, exige escolher um
+  idioma específico da lista (a interface troca automaticamente para o motor
+  de IA se você selecionar "Detectar automaticamente" com o Tesseract
+  selecionado, e vice-versa). Mais de 20 idiomas disponíveis
+  (`backend/languages.py`); idiomas com suporte historicamente mais fraco no
+  OCR local (Tesseract) aparecem marcados e disparam um aviso na interface
+  sugerindo o motor de IA para melhor precisão.
+
+Os pacotes de idioma do Tesseract são baixados sob demanda (não dependem do
+que o instalador do sistema trouxe) — ver "Detecção automática do Tesseract"
+logo abaixo.
 
 ## Servidor MCP (Claude Desktop / Claude Code)
 
@@ -264,6 +336,7 @@ backend/
   paths.py                 # Diretórios de dados (dev e executável empacotado)
   ocr.py                   # Extração de texto de PDF/EPUB + OCR plugável (Tesseract ou IA)
   audio_transcriber.py     # Transcrição de áudio/vídeo (fala -> texto): Whisper local ou IA
+  languages.py             # Tabela única de idiomas de CONTEÚDO (Tesseract/Whisper/IA)
   ai_providers.py          # Camada de provedores de IA (Claude, OpenAI, Gemini)
   settings_store.py        # Armazenamento local das chaves de API
   system_check.py          # Detecção do Tesseract OCR + comando de instalação por SO
@@ -280,6 +353,7 @@ frontend/
   index.html
   style.css
   app.js
+  i18n.js                  # Idioma da INTERFACE (não confundir com languages.py, do conteúdo)
 packaging/
   build-pyinstaller.sh     # Compila o binário standalone (usado pelos 3 scripts abaixo)
   build-deb.sh             # Gera o .deb
@@ -304,6 +378,11 @@ install.sh                 # Instalador via terminal (Linux/macOS)
 - Os pacotes empacotados não incluem o Tesseract OCR (exceto o `.deb`, que o
   declara como dependência e o apt instala junto) — nos demais, o app avisa e
   orienta a instalação na primeira execução.
+- A interface tem 3 idiomas (pt-BR/en/es); os nomes dos idiomas de CONTEÚDO no
+  seletor (ex.: "Alemão"/"German") só existem traduzidos para português e
+  inglês — com a interface em espanhol, esses nomes aparecem em inglês.
+  Mensagens vindas do backend para detecção de dependências (Tesseract) ainda
+  são só em português, independente do idioma da interface.
 - Transcrição de áudio/vídeo via IA em nuvem (OpenAI/Google) tem custo por
   chamada e exige chave de API — mesma observação de privacidade do OCR por
   IA se aplica ao conteúdo do áudio. O Whisper local evita isso, mas exige

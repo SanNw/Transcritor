@@ -22,6 +22,15 @@ com:
   livro, ou instrução livre (resumir, traduzir, listar personagens etc.),
   com divisão em blocos + síntese final para documentos longos. Funciona
   também em cima de texto transcrito de áudio.
+- **Idioma do conteúdo** (documento/áudio): mais de 20 idiomas
+  (`backend/languages.py`), com **detecção automática por padrão** — nunca
+  traduz sozinho, só reconhece no idioma original (a menos que o usuário peça
+  tradução via pós-processamento). Tesseract é a exceção (não detecta
+  sozinho, exige escolha explícita); a UI corrige automaticamente
+  incompatibilidades motor/idioma.
+- **Idioma da interface**: Português, English, Español — detectado do
+  navegador (`navigator.language`), com seletor manual persistido em
+  `localStorage`. Ver `frontend/i18n.js`.
 - Download individual ou em lote (`.zip`).
 - Quatro formas de usar: navegador (`uvicorn main:app`), app desktop com
   janela própria (`desktop_app.py`, via pywebview), pacotes instaláveis
@@ -68,22 +77,26 @@ testado" resta.
 ## Pendências conhecidas / próximos passos
 
 As três frentes prioritárias (empacotamento, áudio, MCP) estão concluídas e
-testadas de ponta a ponta — ver seções acima e "Decisões técnicas" abaixo.
+testadas de ponta a ponta, assim como a instalação automática do Tesseract no
+Windows (via `winget`) e o sistema de idiomas (interface + conteúdo) — ver
+seções acima e "Decisões técnicas" abaixo.
 
-Ideias levantadas mas ainda não implementadas:
+Lacunas conhecidas e deixadas como estão (avaliadas, não bugs escondidos):
 
-- **Instalação automática do Tesseract no Windows**: hoje `system_check.py`
-  marca `auto_installable: False` pro Windows (só mostra link + instrução
-  manual). Tentei baixar o instalador oficial (UB-Mannheim,
-  `digi.bib.uni-mannheim.de`) via `curl` e via `Invoke-WebRequest` do
-  PowerShell nesta sessão e o servidor deles estava inacessível a partir
-  daqui (conexão recusada nos dois casos) — pode ser só uma restrição deste
-  ambiente específico, não necessariamente do usuário final. Não implementei
-  às cegas sem conseguir testar; se for retomar, a ideia seria: baixar o
-  `.exe` deles (é um instalador Inno Setup, aceita `/VERYSILENT
-  /SUPPRESSMSGBOXES /NORESTART` como o nosso próprio instalador) e rodar
-  silenciosamente, análogo ao `brew install` já usado no macOS. Precisa
-  confirmar antes que esse domínio responde normalmente numa rede comum.
+- Idioma da interface tem só 3 opções (pt-BR/en/es); os *nomes* dos idiomas
+  de CONTEÚDO no seletor só existem traduzidos pra português/inglês (com a
+  interface em espanhol, aparecem em inglês). Mensagens de `system_check.py`
+  (dependência do Tesseract) ainda são só em português. Ver "Limitações
+  conhecidas" no `README.md`.
+- Skills de terceiros que o usuário encontrou via `openskills install`
+  (`alper-dev/build-for-good-ux-skill`, `fratilanico/apex-os-bad-boy`,
+  `JeremyKalmus/parade`, `juspay/kolu`) foram auditadas com o
+  `skill-security-auditor`: só `build-for-good-ux-skill` passou limpo (é uma
+  skill de verdade, com `SKILL.md`). As outras três nem são skills — são
+  repositórios de aplicações completas sem `SKILL.md`, com dezenas de
+  achados CRITICAL/HIGH (uso de `child_process`/`exec`, YAML inseguro etc. —
+  esperado em código de aplicação normal, mas não algo pra instalar como
+  "skill" do Claude). Nenhuma foi instalada.
 
 Roadmap maior discutido com o usuário (lista de features vinda de uma
 sessão de brainstorm com ChatGPT, avaliada e priorizada por esforço/valor —
@@ -186,6 +199,71 @@ resumido, do mais barato ao mais caro:
   função Python direto): tool `transcrever` funcionando tanto pra áudio
   (motor `whisper` local) quanto pra imagem (motor `ai`/OpenAI), nos dois
   formatos de saída (`text` e `docx`).
+- **Tesseract automático no Windows via `winget`, não via download direto**:
+  a ideia original era baixar o instalador oficial da UB-Mannheim direto do
+  site deles (`digi.bib.uni-mannheim.de`), mas esse domínio estava
+  inacessível a partir do ambiente de sandbox usado numa sessão anterior.
+  Solução mais robusta sugerida pelo usuário: usar
+  `winget install -e --id UB-Mannheim.TesseractOCR --silent
+  --accept-package-agreements --accept-source-agreements` — o winget baixa
+  do GitHub Releases da UB-Mannheim (não do site instável) e foi testado de
+  ponta a ponta nesta sessão (instalou, OCR funcionou depois). Ver
+  `_install_hint()` em `backend/system_check.py`.
+- **PATH desatualizado após instalar (Windows)**: instalar algo (winget,
+  qualquer `.exe`) atualiza o PATH do sistema, mas um processo Python já em
+  execução não vê essa mudança até reiniciar — isso é uma limitação do SO,
+  não tem como "atualizar o PATH" de um processo já rodando a partir de
+  dentro dele. Contornado checando diretamente o caminho de instalação
+  padrão do Tesseract (`C:\Program Files\Tesseract-OCR\tesseract.exe`)
+  quando o PATH não resolve (`find_tesseract()` em `system_check.py`) —
+  testado de verdade: funcionou sem reiniciar o app logo após o `winget
+  install`.
+- **Tessdata gerenciado pelo próprio app, não pelo pacote do sistema**: o
+  pacote do winget só vem com inglês (`eng.traineddata`); a pasta de
+  instalação do Tesseract (`Program Files`) normalmente não é gravável sem
+  admin. Em vez de lutar com isso, o Transcritor baixa os `.traineddata` que
+  precisa (de `tessdata_fast` no GitHub) para sua própria pasta de dados
+  (`TESSDATA_DIR` em `paths.py`) e aponta o Tesseract pra lá via a variável
+  de ambiente `TESSDATA_PREFIX` (não via `--tessdata-dir` no `config` do
+  pytesseract — `shlex.split` no Windows mantém aspas como caracteres
+  literais no path, quebrando o caminho; `TESSDATA_PREFIX` evita esse
+  problema porque o Tesseract lê a env var diretamente, sem parsing de
+  aspas). Isso significa que o Transcritor **não usa mais a pasta tessdata
+  do sistema** em nenhuma plataforma — funciona igual em Windows/Linux/macOS,
+  independente do que o instalador do SO trouxe.
+- **`languages.py` como fonte única de idiomas de conteúdo**: antes,
+  `ai_providers.py` e `audio_transcriber.py` tinham cada um seu próprio
+  mini-dicionário de mapeamento de idioma (Tesseract usa códigos de 3 letras,
+  Whisper usa ISO 639-1 de 2 letras). Consolidado numa tabela só
+  (`backend/languages.py`) com ~24 idiomas, cada um sabendo seu próprio
+  código Tesseract/Whisper/nome — adicionar um idioma novo é só acrescentar
+  uma linha lá. Suporte a `"auto"` (detecção automática): válido pra
+  `engine="ai"`/`"whisper"` (esses motores detectam sozinhos, então o app só
+  omite a instrução de idioma do prompt/parâmetro), mas **inválido pro
+  Tesseract** (não detecta sozinho) — validado em `main.py`, `mcp_server.py`
+  e auto-corrigido na UI (`app.js` troca de motor ou de idioma sozinho pra
+  nunca deixar essa combinação inválida chegar no envio).
+- **Prompts de IA reforçam "não traduza"**: como os provedores de IA são
+  LLMs de propósito geral, sem a instrução explícita eles poderiam
+  "ajudar" traduzindo o texto reconhecido pro idioma da conversa (o usuário
+  pediu explicitamente que a transcrição preserve o idioma original, só
+  traduzindo se pedido via pós-processamento). `TRANSCRIBE_PROMPT_TEMPLATE`
+  e `AUDIO_TRANSCRIBE_PROMPT_TEMPLATE` (`ai_providers.py`) têm essa instrução
+  explícita — testado de verdade com detecção automática (`lang=auto`) numa
+  imagem em português via IA (OpenAI): o resultado saiu em português, sem
+  tradução, mesmo com a conversa em português.
+- **i18n da interface é um sistema à parte de `languages.py`**: idioma da
+  INTERFACE (botões, rótulos) vive só em `frontend/i18n.js`
+  (`TRANSLATIONS`/`t()`/`applyTranslations()`), detecção via
+  `navigator.language` com override em `localStorage`, sem nada no backend
+  — propositalmente simples (é só um dicionário de strings + um seletor).
+  Elementos com estado dinâmico (status de job, status de configuração de
+  provedor) **não** usam `data-i18n` direto porque esse atributo é
+  sobrescrito goela abaixo pelas funções que renderizam o estado real; em
+  vez disso, escutam o evento customizado `i18n:applied` (disparado por
+  `applyTranslations()`) pra se re-renderizarem chamando `t()` de novo.
+  Cuidado ao adicionar novo texto dinâmico: sempre re-renderizar via esse
+  evento, nunca só via `data-i18n` estático.
 
 ## Como testar rapidamente depois de mudanças
 
@@ -202,5 +280,13 @@ no sistema) e escolher motor "whisper" ao enviar um áudio.
 Para o servidor MCP: `pip install -r requirements-mcp.txt` e rodar
 `python mcp_server.py` (stdio) — ou registrar no Claude Desktop/Code, ver
 seção "Servidor MCP" no `README.md`.
+
+Para testar idiomas: troque o seletor no canto superior direito (idioma da
+interface) e confira se todos os textos mudam, inclusive jobs já na lista
+(sem precisar recarregar a página); no seletor "Idioma do conteúdo", escolha
+um idioma marcado como suporte limitado (ex.: chinês, árabe) com o motor
+Tesseract selecionado e confira se aparece o aviso; troque pra "Detectar
+automaticamente" e confirme que o motor muda sozinho pra IA (Tesseract não
+aceita `auto`).
 
 Para regenerar os pacotes: ver seção "Gerar os pacotes" no `README.md`.

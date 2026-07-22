@@ -76,9 +76,27 @@ body {
   flex: 1;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  flex-shrink: 0;
+}
+
 .settings-btn {
   flex-shrink: 0;
   align-self: center;
+}
+
+.ui-lang-select {
+  flex-shrink: 0;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #B9974D);
+  background: var(--surface, #fff);
+  color: inherit;
 }
 
 .crest {
@@ -202,6 +220,13 @@ body {
 
 .provider-hint.warning {
   color: var(--error);
+}
+
+.lang-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--error);
+  max-width: 220px;
 }
 
 .instruction-input {

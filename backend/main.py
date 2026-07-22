@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import languages
 from ai_providers import GRAMMAR_INSTRUCTION, ProviderError, get_provider, run_ai_postprocess
 from audio_transcriber import AUDIO_EXTENSIONS, transcribe_audio_file, transcribe_audio_local
 from docx_builder import build_docx, build_docx_from_text
@@ -177,7 +178,7 @@ def _run_transcription(job_id: str, upload_path: Path, options: TranscribeOption
 async def create_transcription(
     background_tasks: BackgroundTasks,
     file: UploadFile,
-    lang: str = Form("por"),
+    lang: str = Form(languages.AUTO),
     engine: str = Form("tesseract"),
     ai_provider: str = Form(""),
     post_process: str = Form("none"),
@@ -200,6 +201,15 @@ async def create_transcription(
             )
     elif engine not in ("tesseract", "ai"):
         raise HTTPException(status_code=400, detail="Motor de transcrição inválido.")
+
+    if lang != languages.AUTO and lang not in languages.BY_CODE and "+" not in lang:
+        raise HTTPException(status_code=400, detail=f"Idioma desconhecido: {lang}")
+    if engine == "tesseract" and lang == languages.AUTO:
+        raise HTTPException(
+            status_code=400,
+            detail="O Tesseract não detecta o idioma automaticamente — escolha um idioma específico, "
+            "ou use o motor de IA (que detecta sozinho).",
+        )
 
     if post_process not in ("none", "grammar", "custom"):
         raise HTTPException(status_code=400, detail="Modo de pós-processamento inválido.")
@@ -343,6 +353,20 @@ async def get_settings() -> dict:
 async def update_settings(payload: SettingsUpdate) -> dict:
     save_settings(payload.model_dump(exclude_none=True))
     return masked_settings()
+
+
+@app.get("/api/languages")
+async def list_languages() -> list[dict]:
+    return [
+        {
+            "code": lang.code,
+            "name_pt": lang.name_pt,
+            "name_en": lang.name_en,
+            "whisper": lang.whisper,
+            "tesseract_limited": lang.tesseract_limited,
+        }
+        for lang in languages.LANGUAGES
+    ]
 
 
 @app.get("/api/system-check")

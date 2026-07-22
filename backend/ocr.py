@@ -1,6 +1,7 @@
 """Extração de texto de PDFs e imagens, com OCR automático para páginas escaneadas."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -10,6 +11,10 @@ import pytesseract
 from bs4 import BeautifulSoup
 from ebooklib import epub, ITEM_DOCUMENT
 from PIL import Image
+
+import languages
+from paths import TESSDATA_DIR
+from system_check import ensure_tessdata_language, find_tesseract
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 PDF_EXTENSIONS = {".pdf"}
@@ -35,7 +40,18 @@ OcrFunction = Callable[[Image.Image, str], str]
 
 
 def _tesseract_ocr(image: Image.Image, lang: str) -> str:
-    return pytesseract.image_to_string(image, lang=lang).strip()
+    path = find_tesseract()
+    if path:
+        pytesseract.pytesseract.tesseract_cmd = path
+    tesseract_lang = languages.tesseract_code(lang)
+    for code in tesseract_lang.split("+"):
+        ensure_tessdata_language(code)
+    # TESSDATA_PREFIX (não --tessdata-dir): o tesseract lê essa variável de
+    # ambiente diretamente, evitando o parsing de aspas de shlex.split em
+    # pytesseract (que trata aspas de forma diferente no Windows e deixaria
+    # as aspas como caracteres literais no caminho).
+    os.environ["TESSDATA_PREFIX"] = str(TESSDATA_DIR)
+    return pytesseract.image_to_string(image, lang=tesseract_lang).strip()
 
 
 def _extract_pdf(

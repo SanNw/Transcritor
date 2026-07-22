@@ -21,6 +21,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import languages
 from ai_providers import AIProvider
 
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".m4a", ".mp4", ".mkv"}
@@ -34,7 +35,6 @@ _MIME_TYPES = {
     ".mkv": "video/x-matroska",
 }
 
-_WHISPER_LOCAL_LANGUAGE = {"por": "pt", "eng": "en"}
 DEFAULT_LOCAL_MODEL = "base"
 
 _local_model_cache: dict[str, object] = {}
@@ -69,5 +69,5 @@ def transcribe_audio_local(path: Path, lang: str, model_name: str = DEFAULT_LOCA
         model = whisper.load_model(model_name)
         _local_model_cache[model_name] = model
 
-    result = model.transcribe(str(path), language=_WHISPER_LOCAL_LANGUAGE.get(lang))
+    result = model.transcribe(str(path), language=languages.whisper_code(lang))
     return (result.get("text") or "").strip()

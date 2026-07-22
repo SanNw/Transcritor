@@ -9,10 +9,62 @@ from __future__ import annotations
 import platform
 import shutil
 import subprocess
+import urllib.request
+from pathlib import Path
+
+from paths import TESSDATA_DIR
+
+# Idiomas do Tesseract baixados sob demanda de um repositório próprio, em vez
+# de depender do pacote de idiomas do gerenciador de pacotes do sistema — no
+# Windows, por exemplo, o pacote do winget só vem com inglês por padrão, e a
+# pasta de instalação (Program Files) normalmente não é gravável sem admin.
+_TESSDATA_BASE_URL = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main"
+
+
+def ensure_tessdata_language(lang_code: str) -> Path:
+    """Garante que `<lang_code>.traineddata` exista em TESSDATA_DIR, baixando
+    do repositório oficial `tessdata_fast` se ainda não estiver presente.
+    """
+    target = TESSDATA_DIR / f"{lang_code}.traineddata"
+    if target.exists():
+        return target
+
+    url = f"{_TESSDATA_BASE_URL}/{lang_code}.traineddata"
+    tmp_path = target.with_suffix(".traineddata.part")
+    try:
+        urllib.request.urlretrieve(url, tmp_path)  # noqa: S310 - URL fixa, não vem de input do usuário
+        tmp_path.replace(target)
+    except OSError as exc:
+        tmp_path.unlink(missing_ok=True)
+        raise RuntimeError(
+            f"Não foi possível baixar o pacote de idioma '{lang_code}' do Tesseract ({url}): {exc}"
+        ) from exc
+    return target
+
+# Instaladores do Tesseract no Windows (winget ou o .exe oficial) gravam o
+# PATH no registro do sistema, mas um processo já em execução (como este
+# servidor) não enxerga essa mudança até reiniciar — por isso, além do
+# shutil.which (que olha o PATH do processo atual), também checamos os
+# caminhos de instalação padrão diretamente.
+_WINDOWS_FALLBACK_PATHS = (
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+)
+
+
+def find_tesseract() -> str | None:
+    path = shutil.which("tesseract")
+    if path:
+        return path
+    if platform.system() == "Windows":
+        for candidate in _WINDOWS_FALLBACK_PATHS:
+            if Path(candidate).is_file():
+                return candidate
+    return None
 
 
 def _tesseract_version() -> str | None:
-    path = shutil.which("tesseract")
+    path = find_tesseract()
     if not path:
         return None
     try:
@@ -46,10 +98,16 @@ def _install_hint() -> dict:
     if system == "Windows":
         return {
             "os": "windows",
-            "command": None,
-            "note": "Baixe e rode o instalador oficial, marcando o idioma 'Portuguese'.",
+            "command": (
+                "winget install -e --id UB-Mannheim.TesseractOCR "
+                "--silent --accept-package-agreements --accept-source-agreements"
+            ),
+            "note": (
+                "Instala via winget (pacote oficial da UB Mannheim). Se o winget não estiver "
+                "disponível, baixe e rode o instalador manualmente, marcando o idioma 'Portuguese'."
+            ),
             "url": "https://github.com/UB-Mannheim/tesseract/wiki",
-            "auto_installable": False,
+            "auto_installable": True,
         }
 
     return {

@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from mcp.server.fastmcp import FastMCP
 
+import languages
 from ai_providers import GRAMMAR_INSTRUCTION, get_provider, run_ai_postprocess
 from audio_transcriber import AUDIO_EXTENSIONS, transcribe_audio_file, transcribe_audio_local
 from docx_builder import build_docx, build_docx_from_text
@@ -37,7 +38,7 @@ def transcrever(
     caminho_arquivo: str,
     motor: str = "tesseract",
     provedor_ia: str = "",
-    idioma: str = "por",
+    idioma: str = languages.AUTO,
     pos_processamento: str = "none",
     instrucao: str = "",
     formato_saida: str = "docx",
@@ -57,7 +58,13 @@ def transcrever(
             motor="ai" ou pos_processamento != "none". Para áudio/vídeo com
             motor="ai", use "openai" ou "google" — a Anthropic Claude não
             suporta áudio nesta API.
-        idioma: "por", "eng" ou "por+eng".
+        idioma: código do idioma do CONTEÚDO (não confundir com o idioma da
+            resposta do Claude) — "auto" (padrão, detecção automática; só
+            funciona com motor="ai" ou "whisper", não com "tesseract") ou um
+            dos códigos suportados ("por", "eng", "spa", "fra", "deu", "ita",
+            "jpn", "chi_sim", "ara", "hin" e outros — ver `languages.py`;
+            pode combinar dois com "+", ex.: "por+eng", para o Tesseract).
+            A transcrição sempre preserva o idioma original — não traduz.
         pos_processamento: "none", "grammar" (corrige e formata como livro)
             ou "custom" (segue `instrucao` livre — resumir, traduzir, listar
             personagens etc.). Sempre exige um provedor de IA em nuvem,
@@ -86,6 +93,13 @@ def transcrever(
     if motor not in valid_engines:
         raise ValueError(
             f"Motor inválido para este tipo de arquivo: '{motor}'. Use um destes: {', '.join(valid_engines)}."
+        )
+    if idioma != languages.AUTO and idioma not in languages.BY_CODE and "+" not in idioma:
+        raise ValueError(f"Idioma desconhecido: '{idioma}'.")
+    if motor == "tesseract" and idioma == languages.AUTO:
+        raise ValueError(
+            "O Tesseract não detecta o idioma automaticamente — informe um idioma específico "
+            "(ex.: 'por'), ou use motor='ai'."
         )
     if pos_processamento not in ("none", "grammar", "custom"):
         raise ValueError("pos_processamento inválido: use 'none', 'grammar' ou 'custom'.")

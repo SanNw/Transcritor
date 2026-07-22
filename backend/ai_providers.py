@@ -11,30 +11,36 @@ from typing import Callable
 
 from PIL import Image
 
+import languages
 from settings_store import DEFAULT_MODELS, get_provider_config
-
-LANGUAGE_HINTS = {
-    "por": "português",
-    "eng": "inglês",
-    "por+eng": "português ou inglês",
-}
 
 TRANSCRIBE_PROMPT_TEMPLATE = (
     "Transcreva fielmente todo o texto visível nesta imagem de página de "
-    "livro, revista ou documento (idioma esperado: {language}). Preserve "
-    "parágrafos e a ordem de leitura. Se não houver texto legível, responda "
-    "com uma string vazia. Responda apenas com o texto transcrito, sem "
-    "comentários, explicações ou formatação markdown."
+    "livro, revista ou documento ({language_instruction}). Preserve "
+    "parágrafos e a ordem de leitura. Escreva no idioma original do "
+    "documento — NÃO traduza, mesmo que seja para o idioma que estou usando "
+    "para conversar com você. Se não houver texto legível, responda com uma "
+    "string vazia. Responda apenas com o texto transcrito, sem comentários, "
+    "explicações ou formatação markdown."
 )
 
 AUDIO_TRANSCRIBE_PROMPT_TEMPLATE = (
-    "Transcreva fielmente toda a fala presente neste áudio (idioma esperado: "
-    "{language}). Ignore ruído de fundo e música, foque no que é dito. "
-    "Organize em parágrafos quando fizer sentido (mudança de assunto ou "
-    "pausa longa). Se não houver fala perceptível, responda com uma string "
-    "vazia. Responda apenas com o texto transcrito, sem comentários, "
-    "marcações de tempo ou identificação de quem fala."
+    "Transcreva fielmente toda a fala presente neste áudio "
+    "({language_instruction}). Ignore ruído de fundo e música, foque no que "
+    "é dito. Organize em parágrafos quando fizer sentido (mudança de assunto "
+    "ou pausa longa). Escreva no idioma original da fala — NÃO traduza, "
+    "mesmo que seja para o idioma que estou usando para conversar com você. "
+    "Se não houver fala perceptível, responda com uma string vazia. Responda "
+    "apenas com o texto transcrito, sem comentários, marcações de tempo ou "
+    "identificação de quem fala."
 )
+
+
+def _language_instruction(lang: str) -> str:
+    if lang == languages.AUTO:
+        return "identifique e use o idioma original automaticamente"
+    return f"idioma esperado: {languages.display_name(lang)}"
+
 
 GRAMMAR_INSTRUCTION = (
     "Você é um revisor editorial. Corrija erros de ortografia, gramática e "
@@ -81,10 +87,6 @@ def _image_to_base64_png(image: Image.Image) -> str:
     return base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
-def _language_name(lang: str) -> str:
-    return LANGUAGE_HINTS.get(lang, lang)
-
-
 class AnthropicProvider(AIProvider):
     name = "anthropic"
 
@@ -99,7 +101,7 @@ class AnthropicProvider(AIProvider):
 
     def transcribe_image(self, image: Image.Image, lang: str) -> str:
         client = self._client()
-        prompt = TRANSCRIBE_PROMPT_TEMPLATE.format(language=_language_name(lang))
+        prompt = TRANSCRIBE_PROMPT_TEMPLATE.format(language_instruction=_language_instruction(lang))
         try:
             response = client.messages.create(
                 model=self.model,
@@ -143,9 +145,6 @@ class AnthropicProvider(AIProvider):
             raise ProviderError(f"Erro na API da Anthropic: {exc}") from exc
 
 
-_WHISPER_LANGUAGE_CODES = {"por": "pt", "eng": "en"}
-
-
 class OpenAIProvider(AIProvider):
     name = "openai"
     supports_audio = True
@@ -161,7 +160,7 @@ class OpenAIProvider(AIProvider):
 
     def transcribe_image(self, image: Image.Image, lang: str) -> str:
         client = self._client()
-        prompt = TRANSCRIBE_PROMPT_TEMPLATE.format(language=_language_name(lang))
+        prompt = TRANSCRIBE_PROMPT_TEMPLATE.format(language_instruction=_language_instruction(lang))
         b64 = _image_to_base64_png(image)
         try:
             response = client.chat.completions.create(
@@ -202,7 +201,7 @@ class OpenAIProvider(AIProvider):
             response = client.audio.transcriptions.create(
                 model="whisper-1",
                 file=(filename, audio_bytes, mime_type),
-                language=_WHISPER_LANGUAGE_CODES.get(lang),
+                language=languages.whisper_code(lang),
             )
             return (response.text or "").strip()
         except ProviderError:
@@ -228,7 +227,7 @@ class GoogleProvider(AIProvider):
         from google.genai import types
 
         client = self._client()
-        prompt = TRANSCRIBE_PROMPT_TEMPLATE.format(language=_language_name(lang))
+        prompt = TRANSCRIBE_PROMPT_TEMPLATE.format(language_instruction=_language_instruction(lang))
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         try:
@@ -260,7 +259,7 @@ class GoogleProvider(AIProvider):
         from google.genai import types
 
         client = self._client()
-        prompt = AUDIO_TRANSCRIBE_PROMPT_TEMPLATE.format(language=_language_name(lang))
+        prompt = AUDIO_TRANSCRIBE_PROMPT_TEMPLATE.format(language_instruction=_language_instruction(lang))
         try:
             response = client.models.generate_content(
                 model=self.model,
