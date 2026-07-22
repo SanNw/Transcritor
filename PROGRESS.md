@@ -98,6 +98,17 @@ Lacunas conhecidas e deixadas como estão (avaliadas, não bugs escondidos):
   esperado em código de aplicação normal, mas não algo pra instalar como
   "skill" do Claude). Nenhuma foi instalada.
 
+**Design/UI**: passada de refinamento feita com a skill `frontend-design`
+(sem redesenhar o tema medieval existente) — `:focus-visible` dourado em
+todo elemento interativo, `prefers-reduced-motion` respeitado, breakpoint
+mobile (`max-width: 640px`) empilhando masthead/opções/cards sem overflow, e
+uma assinatura visual nova: os cards de job ganharam duas "folhas" sutis por
+baixo (`::before`/`::after` rotacionados), reforçando a metáfora de páginas
+de manuscrito. Só `frontend/style.css` mudou. Testado via screenshot +
+zoom no navegador; viewport mobile foi simulada com um iframe de 390px
+(o `resize_window` do Chrome automation não funcionou neste ambiente —
+vale tentar de novo numa sessão futura pra confirmar em viewport real).
+
 Roadmap maior discutido com o usuário (lista de features vinda de uma
 sessão de brainstorm com ChatGPT, avaliada e priorizada por esforço/valor —
 ver histórico da conversa para a lista completa categorizada). Bucket
