@@ -37,9 +37,12 @@
           <span class="ornament-diamond"></span>
           <span class="ornament-line"></span>
         </div>
-        <p class="subtitle">Livros, revistas, PDFs e EPUBs transformados em manuscritos .docx</p>
+        <p class="subtitle" data-i18n="appSubtitle">Livros, revistas, PDFs e EPUBs transformados em manuscritos .docx</p>
       </div>
-      <button id="open-settings" class="btn btn-secondary settings-btn" type="button">Configurações de IA</button>
+      <div class="header-actions">
+        <select id="ui-lang-select" class="ui-lang-select" aria-label="Idioma da interface"></select>
+        <button id="open-settings" class="btn btn-secondary settings-btn" type="button" data-i18n="settingsButton">Configurações de IA</button>
+      </div>
     </header>
 
     <div id="dependency-banner" class="dependency-banner" hidden>
@@ -48,8 +51,8 @@
         <span class="ornament-diamond"></span>
         <span class="ornament-line"></span>
       </div>
-      <h2>Tesseract OCR não encontrado</h2>
-      <p>
+      <h2 data-i18n="dependencyTitle">Tesseract OCR não encontrado</h2>
+      <p data-i18n="dependencyBody">
         O motor de OCR local não está instalado nesta máquina. Você ainda pode usar o motor de
         IA (se tiver uma chave configurada), mas o Tesseract é necessário para o OCR local
         gratuito.
@@ -57,12 +60,12 @@
       <p class="dependency-note" id="dependency-note"></p>
       <div class="dependency-command-row">
         <code id="dependency-command" class="dependency-command"></code>
-        <button id="copy-command" class="btn btn-secondary" type="button">Copiar</button>
+        <button id="copy-command" class="btn btn-secondary" type="button" data-i18n="copyButton">Copiar</button>
       </div>
       <div class="settings-actions">
-        <a id="dependency-link" class="btn btn-secondary" href="#" target="_blank" rel="noopener">Ver documentação</a>
-        <button id="auto-install" class="btn btn-primary" type="button" hidden>Instalar automaticamente</button>
-        <button id="recheck-dependency" class="btn btn-primary" type="button">Já instalei, verificar de novo</button>
+        <a id="dependency-link" class="btn btn-secondary" href="#" target="_blank" rel="noopener" data-i18n="dependencyLink">Ver documentação</a>
+        <button id="auto-install" class="btn btn-primary" type="button" hidden data-i18n="autoInstallButton">Instalar automaticamente</button>
+        <button id="recheck-dependency" class="btn btn-primary" type="button" data-i18n="recheckButton">Já instalei, verificar de novo</button>
       </div>
       <p class="settings-feedback" id="dependency-feedback" aria-live="polite"></p>
     </div>
@@ -73,47 +76,46 @@
           id="file-input"
           type="file"
           name="file"
-          accept=".pdf,.epub,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp"
+          accept=".pdf,.epub,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,.mp3,.wav,.flac,.m4a,.mp4,.mkv"
           hidden
         />
         <div class="dropzone-content">
-          <p class="dropzone-title">Arraste um arquivo aqui ou clique para escolher</p>
-          <p class="dropzone-hint">PDF, EPUB, PNG, JPG, TIFF, BMP ou WEBP · até 200 MB</p>
+          <p class="dropzone-title" data-i18n="dropzoneTitle">Arraste um arquivo aqui ou clique para escolher</p>
+          <p class="dropzone-hint" data-i18n="dropzoneHint1">PDF, EPUB, PNG, JPG, TIFF, BMP, WEBP, MP3, WAV, FLAC, M4A, MP4 ou MKV · até 200 MB</p>
+          <p class="dropzone-hint" data-i18n="dropzoneHint2">Áudio/vídeo: escolha Whisper local (grátis, offline) ou IA em nuvem (OpenAI/Google — a Anthropic Claude ainda não transcreve áudio)</p>
         </div>
       </form>
 
       <div class="options-panel">
         <div class="options-row">
           <div class="options">
-            <label for="lang-select">Idioma</label>
-            <select id="lang-select">
-              <option value="por" selected>Português</option>
-              <option value="eng">Inglês</option>
-              <option value="por+eng">Português + Inglês</option>
-            </select>
+            <label for="lang-select" data-i18n="langLabel">Idioma do conteúdo</label>
+            <select id="lang-select"></select>
+            <p class="lang-hint" id="lang-hint"></p>
           </div>
 
           <div class="options">
-            <label for="engine-select">Motor de transcrição</label>
+            <label for="engine-select" data-i18n="engineLabel">Motor de transcrição</label>
             <select id="engine-select">
-              <option value="tesseract" selected>Tesseract (local, grátis)</option>
-              <option value="ai">Inteligência artificial</option>
+              <option value="tesseract" selected data-i18n="engineTesseract">Tesseract (local, grátis — documentos/imagens)</option>
+              <option value="ai" data-i18n="engineAi">Inteligência artificial (nuvem)</option>
+              <option value="whisper" data-i18n="engineWhisper">Whisper local (grátis — só áudio/vídeo)</option>
             </select>
           </div>
 
           <div class="options">
-            <label for="postprocess-select">Pós-processamento</label>
+            <label for="postprocess-select" data-i18n="postprocessLabel">Pós-processamento</label>
             <select id="postprocess-select">
-              <option value="none" selected>Nenhum</option>
-              <option value="grammar">Corrigir e formatar como livro</option>
-              <option value="custom">Instrução personalizada</option>
+              <option value="none" selected data-i18n="postprocessNone">Nenhum</option>
+              <option value="grammar" data-i18n="postprocessGrammar">Corrigir e formatar como livro</option>
+              <option value="custom" data-i18n="postprocessCustom">Instrução personalizada</option>
             </select>
           </div>
         </div>
 
         <div class="options-row" id="provider-row" hidden>
           <div class="options">
-            <label for="provider-select">Provedor de IA</label>
+            <label for="provider-select" data-i18n="providerLabel">Provedor de IA</label>
             <select id="provider-select">
               <option value="anthropic">Anthropic Claude</option>
               <option value="openai">OpenAI</option>
@@ -128,13 +130,14 @@
             id="custom-instruction"
             class="instruction-input"
             rows="2"
+            data-i18n-placeholder="customInstructionPlaceholder"
             placeholder="Ex.: resuma esta obra em até 2 páginas · traduza para o inglês · liste os personagens principais"
           ></textarea>
         </div>
       </div>
 
       <div class="toolbar">
-        <button id="download-all" class="btn btn-secondary" type="button" hidden>
+        <button id="download-all" class="btn btn-secondary" type="button" hidden data-i18n="downloadAllButton">
           Baixar tudo (.zip)
         </button>
       </div>
@@ -150,8 +153,8 @@
         <span class="ornament-diamond"></span>
         <span class="ornament-line"></span>
       </div>
-      <h2 id="settings-title">Configurações de IA</h2>
-      <p class="settings-note">
+      <h2 id="settings-title" data-i18n="settingsTitle">Configurações de IA</h2>
+      <p class="settings-note" data-i18n="settingsNote">
         As chaves ficam salvas apenas nesta máquina, em texto puro, e são usadas para chamar a
         API do provedor escolhido diretamente. Nunca são enviadas a nenhum outro serviço.
       </p>
@@ -159,24 +162,24 @@
       <div class="settings-provider" data-provider="anthropic">
         <h3>Anthropic Claude</h3>
         <p class="settings-status" data-status>Não configurado</p>
-        <input type="password" class="settings-input" data-key-input placeholder="Chave de API (sk-ant-...)" />
+        <input type="password" class="settings-input" data-key-input data-i18n-placeholder="apiKeyPlaceholderAnthropic" placeholder="Chave de API (sk-ant-...)" />
       </div>
 
       <div class="settings-provider" data-provider="openai">
         <h3>OpenAI</h3>
         <p class="settings-status" data-status>Não configurado</p>
-        <input type="password" class="settings-input" data-key-input placeholder="Chave de API (sk-...)" />
+        <input type="password" class="settings-input" data-key-input data-i18n-placeholder="apiKeyPlaceholderOpenAI" placeholder="Chave de API (sk-...)" />
       </div>
 
       <div class="settings-provider" data-provider="google">
         <h3>Google Gemini</h3>
         <p class="settings-status" data-status>Não configurado</p>
-        <input type="password" class="settings-input" data-key-input placeholder="Chave de API (AIza...)" />
+        <input type="password" class="settings-input" data-key-input data-i18n-placeholder="apiKeyPlaceholderGoogle" placeholder="Chave de API (AIza...)" />
       </div>
 
       <div class="settings-actions">
-        <button id="close-settings" class="btn btn-secondary" type="button">Fechar</button>
-        <button id="save-settings" class="btn btn-primary" type="button">Salvar chaves</button>
+        <button id="close-settings" class="btn btn-secondary" type="button" data-i18n="closeButton">Fechar</button>
+        <button id="save-settings" class="btn btn-primary" type="button" data-i18n="saveKeysButton">Salvar chaves</button>
       </div>
       <p class="settings-feedback" id="settings-feedback" aria-live="polite"></p>
     </div>
@@ -200,10 +203,11 @@
           <div class="job-progress-bar" data-progress-bar></div>
         </div>
       </div>
-      <a class="btn btn-primary job-download" data-download hidden download>Baixar .docx</a>
+      <a class="btn btn-primary job-download" data-download hidden download data-i18n="jobDownload">Baixar .docx</a>
     </article>
   </template>
 
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
