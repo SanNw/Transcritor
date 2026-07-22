@@ -73,12 +73,13 @@
           id="file-input"
           type="file"
           name="file"
-          accept=".pdf,.epub,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp"
+          accept=".pdf,.epub,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,.mp3,.wav,.flac,.m4a,.mp4,.mkv"
           hidden
         />
         <div class="dropzone-content">
           <p class="dropzone-title">Arraste um arquivo aqui ou clique para escolher</p>
-          <p class="dropzone-hint">PDF, EPUB, PNG, JPG, TIFF, BMP ou WEBP · até 200 MB</p>
+          <p class="dropzone-hint">PDF, EPUB, PNG, JPG, TIFF, BMP, WEBP, MP3, WAV, FLAC, M4A, MP4 ou MKV · até 200 MB</p>
+          <p class="dropzone-hint">Áudio/vídeo: escolha Whisper local (grátis, offline) ou IA em nuvem (OpenAI/Google — a Anthropic Claude ainda não transcreve áudio)</p>
         </div>
       </form>
 
@@ -96,8 +97,9 @@
           <div class="options">
             <label for="engine-select">Motor de transcrição</label>
             <select id="engine-select">
-              <option value="tesseract" selected>Tesseract (local, grátis)</option>
-              <option value="ai">Inteligência artificial</option>
+              <option value="tesseract" selected>Tesseract (local, grátis — documentos/imagens)</option>
+              <option value="ai">Inteligência artificial (nuvem)</option>
+              <option value="whisper">Whisper local (grátis — só áudio/vídeo)</option>
             </select>
           </div>
 

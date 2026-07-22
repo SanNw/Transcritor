@@ -27,6 +27,15 @@ TRANSCRIBE_PROMPT_TEMPLATE = (
     "comentários, explicações ou formatação markdown."
 )
 
+AUDIO_TRANSCRIBE_PROMPT_TEMPLATE = (
+    "Transcreva fielmente toda a fala presente neste áudio (idioma esperado: "
+    "{language}). Ignore ruído de fundo e música, foque no que é dito. "
+    "Organize em parágrafos quando fizer sentido (mudança de assunto ou "
+    "pausa longa). Se não houver fala perceptível, responda com uma string "
+    "vazia. Responda apenas com o texto transcrito, sem comentários, "
+    "marcações de tempo ou identificação de quem fala."
+)
+
 GRAMMAR_INSTRUCTION = (
     "Você é um revisor editorial. Corrija erros de ortografia, gramática e "
     "pontuação no texto abaixo (provavelmente fruto de OCR, então pode ter "
@@ -51,11 +60,19 @@ class AIProvider(ABC):
         self.api_key = api_key
         self.model = model
 
+    supports_audio = False
+
     @abstractmethod
     def transcribe_image(self, image: Image.Image, lang: str) -> str: ...
 
     @abstractmethod
     def run_instruction(self, text: str, instruction: str) -> str: ...
+
+    def transcribe_audio(self, audio_bytes: bytes, filename: str, mime_type: str, lang: str) -> str:
+        raise ProviderError(
+            f"{self.name} não oferece transcrição de áudio/fala nesta API. "
+            "Use OpenAI ou Google Gemini para arquivos de áudio/vídeo."
+        )
 
 
 def _image_to_base64_png(image: Image.Image) -> str:
@@ -126,8 +143,12 @@ class AnthropicProvider(AIProvider):
             raise ProviderError(f"Erro na API da Anthropic: {exc}") from exc
 
 
+_WHISPER_LANGUAGE_CODES = {"por": "pt", "eng": "en"}
+
+
 class OpenAIProvider(AIProvider):
     name = "openai"
+    supports_audio = True
 
     def _client(self):
         try:
@@ -175,9 +196,24 @@ class OpenAIProvider(AIProvider):
         except Exception as exc:  # noqa: BLE001
             raise ProviderError(f"Erro na API da OpenAI: {exc}") from exc
 
+    def transcribe_audio(self, audio_bytes: bytes, filename: str, mime_type: str, lang: str) -> str:
+        client = self._client()
+        try:
+            response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=(filename, audio_bytes, mime_type),
+                language=_WHISPER_LANGUAGE_CODES.get(lang),
+            )
+            return (response.text or "").strip()
+        except ProviderError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise ProviderError(f"Erro na API da OpenAI (Whisper): {exc}") from exc
+
 
 class GoogleProvider(AIProvider):
     name = "google"
+    supports_audio = True
 
     def _client(self):
         try:
@@ -214,6 +250,25 @@ class GoogleProvider(AIProvider):
         prompt = f"{instruction}\n\n---\nTEXTO:\n{text}"
         try:
             response = client.models.generate_content(model=self.model, contents=prompt)
+            return (response.text or "").strip()
+        except ProviderError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise ProviderError(f"Erro na API do Google: {exc}") from exc
+
+    def transcribe_audio(self, audio_bytes: bytes, filename: str, mime_type: str, lang: str) -> str:
+        from google.genai import types
+
+        client = self._client()
+        prompt = AUDIO_TRANSCRIBE_PROMPT_TEMPLATE.format(language=_language_name(lang))
+        try:
+            response = client.models.generate_content(
+                model=self.model,
+                contents=[
+                    prompt,
+                    types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
+                ],
+            )
             return (response.text or "").strip()
         except ProviderError:
             raise

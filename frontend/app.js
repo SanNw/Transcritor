@@ -41,13 +41,22 @@ const STATUS_LABELS = {
 
 const STAGE_LABELS = {
   extraindo: "Transcrevendo",
+  transcrevendo_audio: "Transcrevendo áudio",
   aplicando_ia: "Aplicando IA",
 };
 
 const STAGE_UNITS = {
   extraindo: "páginas",
+  transcrevendo_audio: "arquivos",
   aplicando_ia: "blocos",
 };
+
+const AUDIO_EXTENSIONS = [".mp3", ".wav", ".flac", ".m4a", ".mp4", ".mkv"];
+
+function isAudioFile(file) {
+  const name = file.name.toLowerCase();
+  return AUDIO_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
 
 /* ---------- Upload / dropzone ---------- */
 
@@ -184,6 +193,20 @@ saveSettingsBtn.addEventListener("click", async () => {
 /* ---------- Jobs ---------- */
 
 async function uploadFile(file) {
+  if (isAudioFile(file)) {
+    if (engineSelect.value === "tesseract") {
+      engineSelect.value = "ai";
+      updateOptionsVisibility();
+    }
+    if (engineSelect.value === "ai" && providerSelect.value === "anthropic") {
+      providerSelect.value = "openai";
+      updateProviderHint();
+    }
+  } else if (engineSelect.value === "whisper") {
+    engineSelect.value = "tesseract";
+    updateOptionsVisibility();
+  }
+
   const needsProvider = engineSelect.value === "ai" || postprocessSelect.value !== "none";
   if (needsProvider) {
     const status = providerStatus[providerSelect.value];
@@ -203,7 +226,7 @@ async function uploadFile(file) {
     id: `pending-${Date.now()}`,
     filename: file.name,
     status: "queued",
-    stage: "extraindo",
+    stage: isAudioFile(file) ? "transcrevendo_audio" : "extraindo",
     pages_done: 0,
     pages_total: 0,
   });

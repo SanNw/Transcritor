@@ -1,0 +1,7 @@
+# Servidor MCP (mcp_server.py) — expõe a transcrição como ferramenta para
+# Claude Desktop/Claude Code. Inclui as dependências de IA (necessárias para
+# o motor "ai" e para pós-processamento); para OCR local (Tesseract) também é
+# preciso o binário do sistema (não é um pacote Python) e, para o Whisper
+# local em áudio, instale requirements-whisper.txt à parte.
+-r requirements-ai.txt
+mcp>=1.6

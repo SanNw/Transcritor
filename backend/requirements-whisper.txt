@@ -1,0 +1,11 @@
+# Motor de transcrição de áudio local (grátis, offline), alternativa à
+# IA em nuvem (OpenAI/Google). Não vem instalado por padrão nem embutido nos
+# pacotes .exe/.deb/AppImage — instale à parte só se for usar esse motor,
+# já que traz o PyTorch (dependência grande).
+#
+#   pip install -r requirements-whisper.txt
+#
+# Os pesos do modelo baixam sozinhos na primeira execução e ficam em
+# ~/.cache/whisper (pasta do usuário, não a pasta de instalação do programa).
+-r requirements.txt
+openai-whisper>=20231117

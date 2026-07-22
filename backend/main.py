@@ -18,17 +18,19 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from ai_providers import GRAMMAR_INSTRUCTION, ProviderError, get_provider, run_ai_postprocess
+from audio_transcriber import AUDIO_EXTENSIONS, transcribe_audio_file, transcribe_audio_local
 from docx_builder import build_docx, build_docx_from_text
 from ocr import extract_pages
 from paths import FRONTEND_DIR, OUTPUT_DIR, UPLOAD_DIR
 from settings_store import PROVIDERS, load_settings, masked_settings, save_settings
 from system_check import check_system
 
-SUPPORTED_EXTENSIONS = {".pdf", ".epub", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
+DOCUMENT_EXTENSIONS = {".pdf", ".epub", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
+SUPPORTED_EXTENSIONS = DOCUMENT_EXTENSIONS | AUDIO_EXTENSIONS
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB
 
 JobStatus = Literal["queued", "processing", "done", "error"]
-Stage = Literal["extraindo", "aplicando_ia"]
+Stage = Literal["extraindo", "transcrevendo_audio", "aplicando_ia"]
 
 
 @dataclass
@@ -101,29 +103,60 @@ def _run_transcription(job_id: str, upload_path: Path, options: TranscribeOption
         if needs_ai:
             provider = get_provider(options.ai_provider)  # type: ignore[arg-type]
 
-        ocr_fn = provider.transcribe_image if options.engine == "ai" else None
-        pages = extract_pages(upload_path, lang=options.lang, on_progress=on_extract_progress, ocr_fn=ocr_fn)
-
         output_filename = f"{job_id}.docx"
         output_path = OUTPUT_DIR / output_filename
+        is_audio = upload_path.suffix.lower() in AUDIO_EXTENSIONS
 
-        if options.post_process == "none":
-            build_docx(pages, title=title, output_path=output_path)
-        else:
+        if is_audio:
             with _jobs_lock:
-                job.stage = "aplicando_ia"
+                job.stage = "transcrevendo_audio"
+                job.pages_total = 1
                 job.pages_done = 0
-                job.pages_total = 0
 
-            instruction = GRAMMAR_INSTRUCTION if options.post_process == "grammar" else options.custom_instruction
-            full_text = "\n\n".join(page.text for page in pages if page.text.strip())
+            if options.engine == "whisper":
+                full_text = transcribe_audio_local(upload_path, options.lang)
+            else:
+                full_text = transcribe_audio_file(upload_path, options.lang, provider)  # type: ignore[arg-type]
+
+            with _jobs_lock:
+                job.pages_done = 1
+
             if not full_text.strip():
-                raise ValueError("Nenhum texto foi extraído do documento para processar com IA.")
+                raise ValueError("Nenhuma fala foi reconhecida neste áudio.")
 
-            processed_text = run_ai_postprocess(
-                full_text, instruction or "", provider, on_progress=on_ai_progress  # type: ignore[arg-type]
-            )
-            build_docx_from_text(processed_text, title=title, output_path=output_path)
+            if options.post_process != "none":
+                with _jobs_lock:
+                    job.stage = "aplicando_ia"
+                    job.pages_done = 0
+                    job.pages_total = 0
+
+                instruction = GRAMMAR_INSTRUCTION if options.post_process == "grammar" else options.custom_instruction
+                full_text = run_ai_postprocess(
+                    full_text, instruction or "", provider, on_progress=on_ai_progress  # type: ignore[arg-type]
+                )
+
+            build_docx_from_text(full_text, title=title, output_path=output_path)
+        else:
+            ocr_fn = provider.transcribe_image if options.engine == "ai" else None
+            pages = extract_pages(upload_path, lang=options.lang, on_progress=on_extract_progress, ocr_fn=ocr_fn)
+
+            if options.post_process == "none":
+                build_docx(pages, title=title, output_path=output_path)
+            else:
+                with _jobs_lock:
+                    job.stage = "aplicando_ia"
+                    job.pages_done = 0
+                    job.pages_total = 0
+
+                instruction = GRAMMAR_INSTRUCTION if options.post_process == "grammar" else options.custom_instruction
+                full_text = "\n\n".join(page.text for page in pages if page.text.strip())
+                if not full_text.strip():
+                    raise ValueError("Nenhum texto foi extraído do documento para processar com IA.")
+
+                processed_text = run_ai_postprocess(
+                    full_text, instruction or "", provider, on_progress=on_ai_progress  # type: ignore[arg-type]
+                )
+                build_docx_from_text(processed_text, title=title, output_path=output_path)
 
         with _jobs_lock:
             job.status = "done"
@@ -158,8 +191,16 @@ async def create_transcription(
             f"Use um destes: {', '.join(sorted(SUPPORTED_EXTENSIONS))}.",
         )
 
-    if engine not in ("tesseract", "ai"):
+    is_audio = suffix in AUDIO_EXTENSIONS
+    if is_audio:
+        if engine not in ("ai", "whisper"):
+            raise HTTPException(
+                status_code=400,
+                detail="Áudio/vídeo exige motor 'ai' (nuvem, via OpenAI/Google) ou 'whisper' (local, grátis).",
+            )
+    elif engine not in ("tesseract", "ai"):
         raise HTTPException(status_code=400, detail="Motor de transcrição inválido.")
+
     if post_process not in ("none", "grammar", "custom"):
         raise HTTPException(status_code=400, detail="Modo de pós-processamento inválido.")
     if post_process == "custom" and not custom_instruction.strip():
@@ -175,6 +216,12 @@ async def create_transcription(
                 status_code=400,
                 detail=f"Configure a chave de API do provedor selecionado em Configurações.",
             )
+
+    if is_audio and engine == "ai" and ai_provider == "anthropic":
+        raise HTTPException(
+            status_code=400,
+            detail="A Anthropic Claude não suporta transcrição de áudio/vídeo nesta API. Selecione OpenAI ou Google Gemini.",
+        )
 
     job_id = uuid.uuid4().hex
     upload_path = UPLOAD_DIR / f"{job_id}{suffix}"
