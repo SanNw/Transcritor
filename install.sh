@@ -2,10 +2,9 @@
 # Instalador do Transcritor para Linux e macOS.
 #
 # Uso:
-#   ./install.sh              instala o modo web (navegador)
-#   ./install.sh --desktop    instala também o modo desktop (janela própria)
-#   ./install.sh --ai         instala também os SDKs de IA (Claude/OpenAI/Gemini)
-#   ./install.sh --yes        não pergunta nada, assume "sim" para tudo
+#   ./install.sh          instala o app desktop (janela própria, Qt/PySide6)
+#   ./install.sh --ai     inclui os SDKs de IA (Claude/OpenAI/Gemini)
+#   ./install.sh --yes    não pergunta nada, assume "sim" para tudo
 set -euo pipefail
 
 BOLD="$(tput bold 2>/dev/null || true)"
@@ -15,13 +14,11 @@ GREEN="$(tput setaf 2 2>/dev/null || true)"
 RED="$(tput setaf 1 2>/dev/null || true)"
 RESET="$(tput sgr0 2>/dev/null || true)"
 
-WITH_DESKTOP=0
 WITH_AI=0
 ASSUME_YES=0
 
 for arg in "$@"; do
   case "$arg" in
-    --desktop) WITH_DESKTOP=1 ;;
     --ai) WITH_AI=1 ;;
     --yes|-y) ASSUME_YES=1 ;;
     *) echo "Argumento desconhecido: $arg" >&2; exit 1 ;;
@@ -86,7 +83,7 @@ else
 
   INSTALL_CMD=""
   if command -v apt-get >/dev/null 2>&1; then
-    INSTALL_CMD="sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-por python3-venv"
+    INSTALL_CMD="sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-por python3-venv libxkbcommon0 libgl1"
   elif command -v dnf >/dev/null 2>&1; then
     INSTALL_CMD="sudo dnf install -y tesseract tesseract-langpack-por"
   elif command -v pacman >/dev/null 2>&1; then
@@ -124,20 +121,14 @@ fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
 pip install --quiet --upgrade pip
-pip install --quiet -r requirements.txt
-ok "Dependências principais instaladas"
+# requirements-desktop.txt já inclui requirements.txt (modo web/API também
+# fica disponível, via `transcritor --web`, sem instalação extra).
+pip install --quiet -r requirements-desktop.txt
+ok "App desktop (Qt) instalado"
 
 if [[ "$WITH_AI" == "1" ]] || confirm "Instalar também os SDKs de IA (Claude/OpenAI/Gemini)?"; then
   pip install --quiet -r requirements-ai.txt
   ok "SDKs de IA instalados"
-fi
-
-if [[ "$WITH_DESKTOP" == "1" ]] || confirm "Instalar também o modo desktop (janela própria)?"; then
-  if pip install --quiet -r requirements-desktop.txt; then
-    ok "Modo desktop instalado"
-  else
-    warn "Falha ao instalar o modo desktop — o modo web continua disponível normalmente."
-  fi
 fi
 
 deactivate
@@ -152,11 +143,11 @@ cat > "$LAUNCHER" <<EOF
 set -e
 cd "$BACKEND_DIR"
 source .venv/bin/activate
-if [[ "\${1:-}" == "--desktop" ]]; then
-  exec python desktop_app.py
-else
+if [[ "\${1:-}" == "--web" ]]; then
   echo "Abrindo em http://127.0.0.1:8000 (Ctrl+C para encerrar)"
   exec uvicorn main:app --host 127.0.0.1 --port 8000
+else
+  exec python qt_main.py
 fi
 EOF
 chmod +x "$LAUNCHER"
@@ -169,5 +160,5 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
 fi
 
 heading "Pronto"
-echo "  Rode ${BOLD}transcritor${RESET} para abrir no navegador,"
-echo "  ou ${BOLD}transcritor --desktop${RESET} para abrir em janela própria."
+echo "  Rode ${BOLD}transcritor${RESET} para abrir o app em janela própria,"
+echo "  ou ${BOLD}transcritor --web${RESET} para abrir no navegador (modo servidor)."

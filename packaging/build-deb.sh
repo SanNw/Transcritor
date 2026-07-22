@@ -42,7 +42,7 @@ Section: utils
 Priority: optional
 Architecture: $ARCH
 Installed-Size: $INSTALLED_SIZE
-Depends: tesseract-ocr, tesseract-ocr-por
+Depends: tesseract-ocr, tesseract-ocr-por, libxkbcommon0, libgl1
 Maintainer: Transcritor <noreply@transcritor.local>
 Description: Transcreve livros, revistas, PDFs e EPUBs em .docx
  Converte PDFs, EPUBs e imagens de livros/revistas (digitais ou

@@ -17,16 +17,15 @@ try {
         python -m venv .venv-build
     }
     & ".venv-build\Scripts\pip.exe" install --quiet --upgrade pip
-    & ".venv-build\Scripts\pip.exe" install --quiet -r requirements.txt
-    & ".venv-build\Scripts\pip.exe" install --quiet pyinstaller
+    & ".venv-build\Scripts\pip.exe" install --quiet -r requirements-desktop.txt
 
     if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
     if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
     if (Test-Path "transcritor.spec") { Remove-Item -Force "transcritor.spec" }
 
-    & ".venv-build\Scripts\pyinstaller.exe" --name transcritor --onefile `
+    & ".venv-build\Scripts\pyinstaller.exe" --name transcritor --onefile --windowed `
         --icon "..\packaging\icons\transcritor.ico" `
-        --add-data "..\frontend;frontend" web_launcher.py
+        qt_main.py
 }
 finally {
     Pop-Location
