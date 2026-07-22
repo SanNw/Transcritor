@@ -20,7 +20,7 @@ def build_docx(pages: list[PageResult], title: str, output_path: Path, include_p
 
     for page in pages:
         if include_page_headings:
-            heading = f"Página {page.number}"
+            heading = page.heading or f"Página {page.number}"
             if page.used_ocr:
                 heading += " (OCR)"
             document.add_heading(heading, level=2)

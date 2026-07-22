@@ -3,9 +3,15 @@ const fileInput = document.getElementById("file-input");
 const langSelect = document.getElementById("lang-select");
 const jobsSection = document.getElementById("jobs");
 const jobTemplate = document.getElementById("job-template");
+const downloadAllBtn = document.getElementById("download-all");
 
 const jobElements = new Map();
 const pollTimers = new Map();
+const doneJobIds = new Set();
+
+downloadAllBtn.addEventListener("click", () => {
+  window.location.href = "/api/jobs/download-all";
+});
 
 const STATUS_LABELS = {
   queued: "Na fila…",
@@ -106,6 +112,8 @@ function updateJobCard(node, job) {
     barEl.style.width = "100%";
     downloadEl.hidden = false;
     downloadEl.href = `/api/jobs/${job.id}/download`;
+    doneJobIds.add(job.id);
+    downloadAllBtn.hidden = false;
   } else {
     const total = job.pages_total || 0;
     const done = job.pages_done || 0;

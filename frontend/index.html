@@ -4,31 +4,71 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Transcritor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="page">
-    <header>
-      <h1>Transcritor</h1>
-      <p class="subtitle">Converta livros, revistas e PDFs (digitais ou escaneados) em arquivos .docx</p>
+    <header class="masthead">
+      <svg class="crest" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path
+          d="M32 4 L58 14 V34 C58 51 47 62 32 68 C17 62 6 51 6 34 V14 Z"
+          fill="#1B2A41"
+          stroke="#B9974D"
+          stroke-width="2.5"
+        />
+        <path
+          d="M32 28 V48 M32 28 C26 24 20 25 16 28 V46 C20 43 26 42 32 46 M32 28 C38 24 44 25 48 28 V46 C44 43 38 42 32 46"
+          stroke="#B9974D"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <div class="masthead-text">
+        <h1>Transcritor</h1>
+        <div class="ornament" role="presentation">
+          <span class="ornament-line"></span>
+          <span class="ornament-diamond"></span>
+          <span class="ornament-line"></span>
+        </div>
+        <p class="subtitle">Livros, revistas, PDFs e EPUBs transformados em manuscritos .docx</p>
+      </div>
     </header>
 
     <main>
       <form id="upload-form" class="dropzone">
-        <input id="file-input" type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" hidden />
+        <input
+          id="file-input"
+          type="file"
+          name="file"
+          accept=".pdf,.epub,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp"
+          hidden
+        />
         <div class="dropzone-content">
           <p class="dropzone-title">Arraste um arquivo aqui ou clique para escolher</p>
-          <p class="dropzone-hint">PDF, PNG, JPG, TIFF, BMP ou WEBP · até 200 MB</p>
+          <p class="dropzone-hint">PDF, EPUB, PNG, JPG, TIFF, BMP ou WEBP · até 200 MB</p>
         </div>
       </form>
 
-      <div class="options">
-        <label for="lang-select">Idioma do OCR</label>
-        <select id="lang-select">
-          <option value="por" selected>Português</option>
-          <option value="eng">Inglês</option>
-          <option value="por+eng">Português + Inglês</option>
-        </select>
+      <div class="toolbar">
+        <div class="options">
+          <label for="lang-select">Idioma do OCR</label>
+          <select id="lang-select">
+            <option value="por" selected>Português</option>
+            <option value="eng">Inglês</option>
+            <option value="por+eng">Português + Inglês</option>
+          </select>
+        </div>
+
+        <button id="download-all" class="btn btn-secondary" type="button" hidden>
+          Baixar tudo (.zip)
+        </button>
       </div>
 
       <section id="jobs" class="jobs" aria-live="polite"></section>
@@ -37,6 +77,15 @@
 
   <template id="job-template">
     <article class="job" data-job>
+      <svg class="job-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path
+          d="M16 10 V24 M16 10 C12 7.5 8 8 5 10 V22 C8 20 12 19.5 16 22 M16 10 C20 7.5 24 8 27 10 V22 C24 20 20 19.5 16 22"
+          stroke="#B9974D"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
       <div class="job-info">
         <p class="job-name" data-name></p>
         <p class="job-status" data-status></p>
@@ -44,7 +93,7 @@
           <div class="job-progress-bar" data-progress-bar></div>
         </div>
       </div>
-      <a class="job-download" data-download hidden download>Baixar .docx</a>
+      <a class="btn btn-primary job-download" data-download hidden download>Baixar .docx</a>
     </article>
   </template>
 

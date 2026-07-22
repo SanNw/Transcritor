@@ -1,27 +1,43 @@
 :root {
   color-scheme: light dark;
-  --bg: #f6f5f2;
-  --surface: #ffffff;
-  --border: #e2ddd3;
-  --text: #22201c;
-  --muted: #79746a;
-  --accent: #a3512b;
-  --accent-soft: #f1e1d5;
-  --error: #b3261e;
-  --success: #2f6b3a;
+
+  --azul-profundo: #1b2a41;
+  --verde-floresta: #2c4a3f;
+  --vinho: #5b1e2d;
+  --dourado: #b9974d;
+  --pergaminho: #f3e9d2;
+  --pedra: #8e8a7f;
+
+  --bg: var(--pergaminho);
+  --surface: #fbf6ea;
+  --border: var(--dourado);
+  --text: var(--azul-profundo);
+  --muted: var(--pedra);
+  --accent: var(--dourado);
+  --accent-contrast: var(--azul-profundo);
+  --success: var(--verde-floresta);
+  --error: var(--vinho);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --space-7: 64px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1c1a17;
-    --surface: #26231f;
-    --border: #3a3630;
-    --text: #f1ede6;
-    --muted: #a89f92;
-    --accent: #e08a5b;
-    --accent-soft: #3a2a1f;
-    --error: #ff8a80;
-    --success: #7dd394;
+    --bg: #14202f;
+    --surface: #1c2c3f;
+    --border: var(--dourado);
+    --text: var(--pergaminho);
+    --muted: #a9a294;
+    --accent: var(--dourado);
+    --accent-contrast: #14202f;
+    --success: #6fae82;
+    --error: #d98a92;
   }
 }
 
@@ -33,95 +49,191 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Iowan Old Style", "Georgia", "Charter", serif;
+  font-family: "Montserrat", "Segoe UI", system-ui, sans-serif;
   min-height: 100vh;
 }
 
 .page {
-  max-width: 720px;
+  max-width: 760px;
   margin: 0 auto;
-  padding: 3rem 1.5rem 4rem;
+  padding: var(--space-6) var(--space-3) var(--space-7);
 }
 
-header {
-  margin-bottom: 2rem;
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
-h1 {
-  font-size: 2.2rem;
-  margin: 0 0 0.35rem;
-  letter-spacing: -0.02em;
+.crest {
+  width: 56px;
+  height: 63px;
+  flex-shrink: 0;
+}
+
+.masthead-text h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.ornament {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0;
+}
+
+.ornament-line {
+  height: 1px;
+  width: 32px;
+  background: var(--dourado);
+}
+
+.ornament-diamond {
+  width: 6px;
+  height: 6px;
+  background: var(--dourado);
+  transform: rotate(45deg);
+  flex-shrink: 0;
 }
 
 .subtitle {
   color: var(--muted);
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .dropzone {
-  border: 2px dashed var(--border);
-  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  outline: 1px solid var(--border);
+  outline-offset: 4px;
+  border-radius: 4px;
   background: var(--surface);
-  padding: 2.5rem 1.5rem;
+  padding: var(--space-6) var(--space-3);
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: outline-color 0.15s ease, background 0.15s ease;
 }
 
 .dropzone:hover,
 .dropzone.dragover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  outline-color: var(--azul-profundo);
+  background: color-mix(in srgb, var(--dourado) 12%, var(--surface));
 }
 
 .dropzone-title {
-  margin: 0 0 0.35rem;
-  font-size: 1.1rem;
+  margin: 0 0 var(--space-1);
+  font-size: 18px;
   font-weight: 600;
 }
 
 .dropzone-hint {
   margin: 0;
   color: var(--muted);
-  font-size: 0.9rem;
-  font-family: system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 var(--space-5);
 }
 
 .options {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin: 1.25rem 0 2rem;
-  font-family: system-ui, sans-serif;
-  font-size: 0.92rem;
+  gap: var(--space-2);
+  font-size: 13px;
   color: var(--muted);
+  font-weight: 500;
 }
 
 .options select {
   font-family: inherit;
-  font-size: 0.92rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: var(--space-1) var(--space-2);
+  border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
 }
 
+.btn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  text-align: center;
+  border-radius: 6px;
+  padding: var(--space-2) var(--space-4);
+  border: 1.5px solid var(--dourado);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--azul-profundo);
+  color: var(--dourado);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--vinho);
+  border-color: var(--vinho);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-secondary {
+    color: #d98a92;
+    border-color: #d98a92;
+  }
+}
+
 .jobs {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .job {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-3);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  padding: var(--space-3) var(--space-4);
+}
+
+.job-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 
 .job-info {
@@ -130,17 +242,18 @@ h1 {
 }
 
 .job-name {
-  margin: 0 0 0.2rem;
+  margin: 0 0 var(--space-1);
   font-weight: 600;
+  font-size: 15px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .job-status {
-  margin: 0 0 0.5rem;
-  font-family: system-ui, sans-serif;
-  font-size: 0.85rem;
+  margin: 0 0 var(--space-2);
+  font-size: 12px;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -153,31 +266,19 @@ h1 {
 }
 
 .job-progress {
-  height: 6px;
+  height: 5px;
   border-radius: 999px;
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--dourado) 20%, transparent);
   overflow: hidden;
 }
 
 .job-progress-bar {
   height: 100%;
   width: 0%;
-  background: var(--accent);
+  background: var(--dourado);
   transition: width 0.25s ease;
 }
 
 .job-download {
-  font-family: system-ui, sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #fff;
-  background: var(--accent);
-  padding: 0.5rem 0.9rem;
-  border-radius: 8px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.job-download:hover {
-  opacity: 0.9;
+  padding: var(--space-2) var(--space-3);
 }

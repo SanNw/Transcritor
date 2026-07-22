@@ -1,7 +1,10 @@
 """Transcritor: API local que converte PDFs/imagens de livros e revistas em .docx."""
 from __future__ import annotations
 
+import io
+import sys
 import uuid
+import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -10,22 +13,33 @@ from typing import Literal
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from docx_builder import build_docx
 from ocr import extract_pages
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+# Em um executável empacotado (PyInstaller), os arquivos ficam extraídos em
+# sys._MEIPASS e o diretório de trabalho não é gravável — por isso os dados
+# do usuário vão para a pasta pessoal em vez de ficar ao lado do código.
+FROZEN = getattr(sys, "frozen", False)
+
+if FROZEN:
+    BASE_DIR = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    FRONTEND_DIR = BASE_DIR / "frontend"
+    DATA_DIR = Path.home() / ".transcritor"
+else:
+    BASE_DIR = Path(__file__).resolve().parent
+    FRONTEND_DIR = BASE_DIR.parent / "frontend"
+    DATA_DIR = BASE_DIR / "data"
+
 UPLOAD_DIR = DATA_DIR / "uploads"
 OUTPUT_DIR = DATA_DIR / "outputs"
-FRONTEND_DIR = BASE_DIR.parent / "frontend"
 
 for directory in (UPLOAD_DIR, OUTPUT_DIR):
     directory.mkdir(parents=True, exist_ok=True)
 
-SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
+SUPPORTED_EXTENSIONS = {".pdf", ".epub", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB
 
 JobStatus = Literal["queued", "processing", "done", "error"]
@@ -137,6 +151,39 @@ async def list_jobs() -> list[dict]:
     with _jobs_lock:
         jobs = sorted(_jobs.values(), key=lambda j: j.created_at, reverse=True)
         return [job.as_dict() for job in jobs]
+
+
+@app.get("/api/jobs/download-all")
+async def download_all_jobs() -> StreamingResponse:
+    with _jobs_lock:
+        done_jobs = [job for job in _jobs.values() if job.status == "done" and job.output_filename]
+
+    if not done_jobs:
+        raise HTTPException(status_code=409, detail="Nenhuma transcrição concluída para baixar.")
+
+    buffer = io.BytesIO()
+    used_names: set[str] = set()
+
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for job in done_jobs:
+            output_path = OUTPUT_DIR / job.output_filename
+            if not output_path.exists():
+                continue
+
+            name = f"{Path(job.original_filename).stem}.docx"
+            if name in used_names:
+                name = f"{Path(job.original_filename).stem}-{job.id[:8]}.docx"
+            used_names.add(name)
+
+            archive.write(output_path, arcname=name)
+
+    buffer.seek(0)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="transcricoes-{timestamp}.zip"'},
+    )
 
 
 @app.get("/api/jobs/{job_id}")
