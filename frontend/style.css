@@ -73,6 +73,7 @@ body {
 }
 
 .masthead-text h1 {
+  font-family: "Cinzel", "Montserrat", serif;
   font-size: 32px;
   font-weight: 700;
   letter-spacing: 0.06em;
