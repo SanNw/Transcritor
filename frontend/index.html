@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transcritor</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Transcritor</h1>
+      <p class="subtitle">Converta livros, revistas e PDFs (digitais ou escaneados) em arquivos .docx</p>
+    </header>
+
+    <main>
+      <form id="upload-form" class="dropzone">
+        <input id="file-input" type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" hidden />
+        <div class="dropzone-content">
+          <p class="dropzone-title">Arraste um arquivo aqui ou clique para escolher</p>
+          <p class="dropzone-hint">PDF, PNG, JPG, TIFF, BMP ou WEBP · até 200 MB</p>
+        </div>
+      </form>
+
+      <div class="options">
+        <label for="lang-select">Idioma do OCR</label>
+        <select id="lang-select">
+          <option value="por" selected>Português</option>
+          <option value="eng">Inglês</option>
+          <option value="por+eng">Português + Inglês</option>
+        </select>
+      </div>
+
+      <section id="jobs" class="jobs" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <template id="job-template">
+    <article class="job" data-job>
+      <div class="job-info">
+        <p class="job-name" data-name></p>
+        <p class="job-status" data-status></p>
+        <div class="job-progress">
+          <div class="job-progress-bar" data-progress-bar></div>
+        </div>
+      </div>
+      <a class="job-download" data-download hidden download>Baixar .docx</a>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

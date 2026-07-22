@@ -1,0 +1,38 @@
+"""Geração do arquivo .docx a partir das páginas transcritas."""
+from __future__ import annotations
+
+from pathlib import Path
+
+from docx import Document
+from docx.shared import Pt
+
+from ocr import PageResult
+
+
+def build_docx(pages: list[PageResult], title: str, output_path: Path, include_page_headings: bool = True) -> None:
+    document = Document()
+
+    style = document.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    document.add_heading(title, level=0)
+
+    for page in pages:
+        if include_page_headings:
+            heading = f"Página {page.number}"
+            if page.used_ocr:
+                heading += " (OCR)"
+            document.add_heading(heading, level=2)
+
+        text = page.text.strip()
+        if not text:
+            document.add_paragraph("[Nenhum texto reconhecido nesta página]")
+            continue
+
+        for paragraph in text.split("\n\n"):
+            paragraph = paragraph.strip()
+            if paragraph:
+                document.add_paragraph(paragraph)
+
+    document.save(output_path)
