@@ -30,35 +30,34 @@ Detalhes de instalação e arquitetura estão no `README.md`.
 
 ## Estado do empacotamento (importante!)
 
-- **`.deb`**: `packaging/build-deb.sh` — testado de ponta a ponta neste
-  ambiente (build → `apt install` → app abre → `apt remove`). Funciona.
-- **AppImage**: `packaging/build-appimage.sh` — a AppDir é montada e
-  validada (o `AppRun` sobe o servidor corretamente), mas o passo final
-  (rodar `appimagetool` para gerar o `.AppImage`) **não foi testado**
-  porque este ambiente de desenvolvimento não tem acesso ao GitHub
-  Releases para baixar o `appimagetool`. Rode o script numa máquina com
-  internet normal, ou baixe o `appimagetool-x86_64.AppImage` manualmente e
-  aponte `APPIMAGETOOL=/caminho/para/ele`.
+Os três pacotes estão testados de ponta a ponta. Nenhum aviso de "não
+testado" resta.
+
+- **`.deb`**: `packaging/build-deb.sh` — testado de ponta a ponta (build →
+  `apt install` → app abre → `apt remove`). Funciona.
+- **AppImage**: `packaging/build-appimage.sh` — testado de ponta a ponta
+  numa sessão Windows, usando um container Docker (`ubuntu:22.04`) para ter
+  um ambiente Linux. `appimagetool` baixado de
+  `https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage`.
+  Dentro de containers sem FUSE, rode o `appimagetool` (e o próprio
+  `.AppImage` gerado, para testar) com a flag `--appimage-extract-and-run`
+  — não precisa mudar nada no `AppRun` nem no script, é só uma limitação de
+  ambiente de build/teste sem FUSE, não do pacote em si. Testado: o
+  `.AppImage` gerado sobe o servidor e responde em `http://127.0.0.1:8000`
+  (`/` e `/api/settings` retornam 200).
 - **Windows `.exe`**: `packaging/windows/transcritor.iss` +
-  `packaging/windows/build-windows.ps1` — escritos seguindo a sintaxe
-  padrão do Inno Setup, mas **nunca compilados nem testados**, porque este
-  é um ambiente Linux sem Windows/Inno Setup disponível. Precisa ser
-  compilado numa máquina Windows (ou CI com runner Windows) com Python
-  3.10+ e o Inno Setup instalados. Ao abrir uma sessão do Claude numa
-  máquina Windows para isso, veja o prompt sugerido abaixo.
-
-### Prompt sugerido para compilar o `.exe` (rodar com Claude numa máquina Windows)
-
-```
-Estou no repositório do Transcritor. Preciso compilar o instalador Windows.
-Rode packaging\windows\build-windows.ps1 a partir da raiz do repositório
-(instale Python 3.10+ e o Inno Setup se não estiverem presentes — Inno
-Setup em https://jrsoftware.org/isinfo.php). Se der erro, investigue e
-corrija packaging/windows/transcritor.iss ou build-windows.ps1 conforme
-necessário — foram escritos sem poder ser testados em Windows. Depois de
-gerar o .exe em dist-packages/, teste rodando o instalador e confirmando
-que o Transcritor abre no navegador em http://127.0.0.1:8000.
-```
+  `packaging/windows/build-windows.ps1` — testado de ponta a ponta numa
+  sessão Windows real (Windows 10, Python 3.13, Inno Setup 6.7.3). Corrigido
+  `build-windows.ps1` para localizar o `ISCC.exe` também via registro do
+  Windows (`HKLM:\...\Uninstall\*` procurando `InstallLocation` de "Inno
+  Setup*"), não só em `Program Files (x86)\Inno Setup 6` — necessário
+  porque o Inno Setup pode estar instalado em outro drive/pasta (ex.:
+  `E:\Programas\Inno Setup 6` nesta máquina). Testado: gerou
+  `Transcritor-1.0.0-setup.exe`, instalado silenciosamente
+  (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`), o app abriu sozinho (o
+  `[Run]` do `.iss` dispara mesmo com essas flags), serviu `/` e
+  `/api/settings` em `http://127.0.0.1:8000`, depois desinstalado
+  (`unins000.exe /VERYSILENT`) limpando tudo.
 
 ## Pendências conhecidas / próximos passos
 
@@ -116,6 +115,20 @@ resumido, do mais barato ao mais caro:
   proxy). Downloads diretos do GitHub Releases (ex.: `appimagetool`) são
   bloqueados. Isso não deve afetar o usuário final rodando os scripts na
   própria máquina.
+- **Bug de CRLF ao clonar em Windows**: se o Git local tiver
+  `core.autocrlf=true` (comum em Windows), o checkout converte `LF` → `CRLF`
+  em todo arquivo de texto — inclusive `.sh`, `.desktop` e `VERSION`, que o
+  repositório guarda com `LF`. Isso quebra os scripts de build (`set -euo
+  pipefail` falha com "invalid option name" porque o `\r` vira parte da
+  própria opção) e pior: `VERSION` (`1.0.0\r\n`) contamina o nome do
+  `.AppImage` gerado com um `\r` literal no meio do nome do arquivo
+  (`Transcritor-1.0.0<CR>-x86_64.AppImage`), quebrando qualquer ferramenta
+  que tente abrir esse caminho depois. Corrigido com `.gitattributes` na
+  raiz (`* text=auto eol=lf`, mais `*.ps1`/`*.bat` forçados para `eol=crlf`)
+  — já commitado, então clones novos não devem mais sofrer disso. Se
+  aparecer de novo (por exemplo, editando esses arquivos a partir do
+  Windows com uma ferramenta que não respeita `.gitattributes`), rode
+  `sed -i 's/\r$//' <arquivo>` para corrigir na hora.
 
 ## Como testar rapidamente depois de mudanças
 

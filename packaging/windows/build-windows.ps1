@@ -37,9 +37,23 @@ Write-Host "Binário gerado em $BackendDir\dist\transcritor.exe" -ForegroundColo
 Write-Host "== Compilando o instalador com Inno Setup ==" -ForegroundColor Yellow
 $Iscc = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
 if (-not $Iscc) {
-    $DefaultPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-    if (Test-Path $DefaultPath) {
-        $Iscc = $DefaultPath
+    $CandidatePaths = @(
+        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+        "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+    )
+    foreach ($UninstallKey in @(
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )) {
+        Get-ItemProperty $UninstallKey -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -like "Inno Setup*" -and $_.InstallLocation } |
+            ForEach-Object { $CandidatePaths += (Join-Path $_.InstallLocation "ISCC.exe") }
+    }
+    foreach ($Candidate in $CandidatePaths) {
+        if (Test-Path $Candidate) {
+            $Iscc = $Candidate
+            break
+        }
     }
 }
 
