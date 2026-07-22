@@ -1,17 +1,27 @@
 const dropzone = document.getElementById("upload-form");
 const fileInput = document.getElementById("file-input");
 const langSelect = document.getElementById("lang-select");
+const engineSelect = document.getElementById("engine-select");
+const postprocessSelect = document.getElementById("postprocess-select");
+const providerRow = document.getElementById("provider-row");
+const providerSelect = document.getElementById("provider-select");
+const providerHint = document.getElementById("provider-hint");
+const customInstructionRow = document.getElementById("custom-instruction-row");
+const customInstructionInput = document.getElementById("custom-instruction");
 const jobsSection = document.getElementById("jobs");
 const jobTemplate = document.getElementById("job-template");
 const downloadAllBtn = document.getElementById("download-all");
 
+const openSettingsBtn = document.getElementById("open-settings");
+const closeSettingsBtn = document.getElementById("close-settings");
+const saveSettingsBtn = document.getElementById("save-settings");
+const settingsOverlay = document.getElementById("settings-overlay");
+const settingsFeedback = document.getElementById("settings-feedback");
+
 const jobElements = new Map();
 const pollTimers = new Map();
-const doneJobIds = new Set();
 
-downloadAllBtn.addEventListener("click", () => {
-  window.location.href = "/api/jobs/download-all";
-});
+let providerStatus = {};
 
 const STATUS_LABELS = {
   queued: "Na fila…",
@@ -19,6 +29,18 @@ const STATUS_LABELS = {
   done: "Concluído",
   error: "Erro",
 };
+
+const STAGE_LABELS = {
+  extraindo: "Transcrevendo",
+  aplicando_ia: "Aplicando IA",
+};
+
+const STAGE_UNITS = {
+  extraindo: "páginas",
+  aplicando_ia: "blocos",
+};
+
+/* ---------- Upload / dropzone ---------- */
 
 dropzone.addEventListener("click", () => fileInput.click());
 
@@ -41,20 +63,154 @@ fileInput.addEventListener("change", () => {
   fileInput.value = "";
 });
 
+downloadAllBtn.addEventListener("click", () => {
+  window.location.href = "/api/jobs/download-all";
+});
+
+/* ---------- Opções de IA no formulário ---------- */
+
+function updateOptionsVisibility() {
+  const needsProvider = engineSelect.value === "ai" || postprocessSelect.value !== "none";
+  providerRow.hidden = !needsProvider;
+  customInstructionRow.hidden = postprocessSelect.value !== "custom";
+  updateProviderHint();
+}
+
+function updateProviderHint() {
+  const provider = providerSelect.value;
+  const status = providerStatus[provider];
+  if (!status || !status.configured) {
+    providerHint.textContent = "Configure a chave deste provedor em Configurações de IA.";
+    providerHint.classList.add("warning");
+  } else {
+    providerHint.textContent = `Configurado (${status.key_preview}) · modelo ${status.model}`;
+    providerHint.classList.remove("warning");
+  }
+}
+
+engineSelect.addEventListener("change", updateOptionsVisibility);
+postprocessSelect.addEventListener("change", updateOptionsVisibility);
+providerSelect.addEventListener("change", updateProviderHint);
+
+/* ---------- Configurações de IA ---------- */
+
+function openSettings() {
+  settingsFeedback.textContent = "";
+  settingsFeedback.classList.remove("error");
+  settingsOverlay.hidden = false;
+}
+
+function closeSettings() {
+  settingsOverlay.hidden = true;
+}
+
+openSettingsBtn.addEventListener("click", openSettings);
+closeSettingsBtn.addEventListener("click", closeSettings);
+settingsOverlay.addEventListener("click", (event) => {
+  if (event.target === settingsOverlay) closeSettings();
+});
+
+async function loadSettings() {
+  try {
+    const response = await fetch("/api/settings");
+    if (!response.ok) return;
+    providerStatus = await response.json();
+
+    document.querySelectorAll(".settings-provider").forEach((node) => {
+      const provider = node.dataset.provider;
+      const status = providerStatus[provider];
+      const statusEl = node.querySelector("[data-status]");
+      if (status && status.configured) {
+        statusEl.textContent = `Configurado (${status.key_preview}) · modelo ${status.model}`;
+        statusEl.classList.remove("unset");
+      } else {
+        statusEl.textContent = "Não configurado";
+        statusEl.classList.add("unset");
+      }
+    });
+
+    updateProviderHint();
+  } catch {
+    // silencioso: painel fica com o estado padrão se a API não responder
+  }
+}
+
+saveSettingsBtn.addEventListener("click", async () => {
+  const payload = {};
+  document.querySelectorAll(".settings-provider").forEach((node) => {
+    const provider = node.dataset.provider;
+    const input = node.querySelector("[data-key-input]");
+    if (input.value.trim()) {
+      payload[provider] = { api_key: input.value.trim() };
+    }
+  });
+
+  if (Object.keys(payload).length === 0) {
+    settingsFeedback.textContent = "Nenhuma chave nova para salvar.";
+    settingsFeedback.classList.remove("error");
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error("Falha ao salvar.");
+
+    document.querySelectorAll(".settings-provider [data-key-input]").forEach((input) => {
+      input.value = "";
+    });
+
+    settingsFeedback.textContent = "Chaves salvas com sucesso.";
+    settingsFeedback.classList.remove("error");
+    await loadSettings();
+  } catch (error) {
+    settingsFeedback.textContent = error.message || "Falha ao salvar as chaves.";
+    settingsFeedback.classList.add("error");
+  }
+});
+
+/* ---------- Jobs ---------- */
+
 async function uploadFile(file) {
+  const needsProvider = engineSelect.value === "ai" || postprocessSelect.value !== "none";
+  if (needsProvider) {
+    const status = providerStatus[providerSelect.value];
+    if (!status || !status.configured) {
+      openSettings();
+      settingsFeedback.textContent = "Configure a chave do provedor selecionado antes de transcrever.";
+      settingsFeedback.classList.add("error");
+      return;
+    }
+  }
+  if (postprocessSelect.value === "custom" && !customInstructionInput.value.trim()) {
+    customInstructionInput.focus();
+    return;
+  }
+
   const card = renderJob({
     id: `pending-${Date.now()}`,
     filename: file.name,
     status: "queued",
+    stage: "extraindo",
     pages_done: 0,
     pages_total: 0,
   });
 
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("lang", langSelect.value);
+  formData.append("engine", engineSelect.value);
+  formData.append("post_process", postprocessSelect.value);
+  if (needsProvider) formData.append("ai_provider", providerSelect.value);
+  if (postprocessSelect.value === "custom") {
+    formData.append("custom_instruction", customInstructionInput.value.trim());
+  }
 
   try {
-    const response = await fetch(`/api/transcribe?lang=${encodeURIComponent(langSelect.value)}`, {
+    const response = await fetch("/api/transcribe", {
       method: "POST",
       body: formData,
     });
@@ -112,13 +268,13 @@ function updateJobCard(node, job) {
     barEl.style.width = "100%";
     downloadEl.hidden = false;
     downloadEl.href = `/api/jobs/${job.id}/download`;
-    doneJobIds.add(job.id);
     downloadAllBtn.hidden = false;
   } else {
     const total = job.pages_total || 0;
     const done = job.pages_done || 0;
-    statusEl.textContent =
-      total > 0 ? `${STATUS_LABELS[job.status] || job.status} (${done}/${total} páginas)` : STATUS_LABELS[job.status] || job.status;
+    const stageLabel = STAGE_LABELS[job.stage] || STATUS_LABELS[job.status] || job.status;
+    const unit = STAGE_UNITS[job.stage] || "páginas";
+    statusEl.textContent = total > 0 ? `${stageLabel}… (${done}/${total} ${unit})` : `${stageLabel}…`;
     barEl.style.width = total > 0 ? `${(done / total) * 100}%` : "8%";
   }
 }
@@ -158,4 +314,6 @@ async function loadExistingJobs() {
   }
 }
 
+updateOptionsVisibility();
+loadSettings();
 loadExistingJobs();

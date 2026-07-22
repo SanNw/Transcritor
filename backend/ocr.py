@@ -31,11 +31,19 @@ class PageResult:
     heading: str | None = None
 
 
-def _ocr_image(image: Image.Image, lang: str) -> str:
+OcrFunction = Callable[[Image.Image, str], str]
+
+
+def _tesseract_ocr(image: Image.Image, lang: str) -> str:
     return pytesseract.image_to_string(image, lang=lang).strip()
 
 
-def _extract_pdf(path: Path, lang: str, on_progress: Callable[[int, int], None] | None) -> list[PageResult]:
+def _extract_pdf(
+    path: Path,
+    lang: str,
+    on_progress: Callable[[int, int], None] | None,
+    ocr_fn: OcrFunction,
+) -> list[PageResult]:
     doc = fitz.open(path)
     total = doc.page_count
     results: list[PageResult] = []
@@ -50,7 +58,7 @@ def _extract_pdf(path: Path, lang: str, on_progress: Callable[[int, int], None] 
             matrix = fitz.Matrix(zoom, zoom)
             pixmap = page.get_pixmap(matrix=matrix)
             image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
-            text = _ocr_image(image, lang)
+            text = ocr_fn(image, lang)
             results.append(PageResult(number=index + 1, text=text, used_ocr=True))
 
         if on_progress:
@@ -60,10 +68,15 @@ def _extract_pdf(path: Path, lang: str, on_progress: Callable[[int, int], None] 
     return results
 
 
-def _extract_image(path: Path, lang: str, on_progress: Callable[[int, int], None] | None) -> list[PageResult]:
+def _extract_image(
+    path: Path,
+    lang: str,
+    on_progress: Callable[[int, int], None] | None,
+    ocr_fn: OcrFunction,
+) -> list[PageResult]:
     image = Image.open(path)
     image = image.convert("RGB")
-    text = _ocr_image(image, lang)
+    text = ocr_fn(image, lang)
     if on_progress:
         on_progress(1, 1)
     return [PageResult(number=1, text=text, used_ocr=True)]
@@ -110,19 +123,25 @@ def extract_pages(
     path: Path,
     lang: str = "por",
     on_progress: Callable[[int, int], None] | None = None,
+    ocr_fn: OcrFunction | None = None,
 ) -> list[PageResult]:
     """Extrai o texto de cada página/capítulo de um PDF, EPUB ou imagem única.
 
-    Para PDFs, usa o texto nativo quando disponível e recorre a OCR
-    apenas nas páginas sem texto selecionável (escaneadas/fotografadas).
-    EPUBs já têm texto nativo, então não passam por OCR.
+    Para PDFs, usa o texto nativo quando disponível e recorre a OCR apenas
+    nas páginas sem texto selecionável (escaneadas/fotografadas). EPUBs já
+    têm texto nativo, então não passam por OCR.
+
+    `ocr_fn` recebe (imagem, idioma) e devolve o texto reconhecido; por
+    padrão usa o Tesseract local, mas pode ser trocado por um provedor de
+    IA (veja ai_providers.py) para páginas escaneadas/fotografadas.
     """
+    fn = ocr_fn or _tesseract_ocr
     suffix = path.suffix.lower()
 
     if suffix in PDF_EXTENSIONS:
-        return _extract_pdf(path, lang, on_progress)
+        return _extract_pdf(path, lang, on_progress, fn)
     if suffix in IMAGE_EXTENSIONS:
-        return _extract_image(path, lang, on_progress)
+        return _extract_image(path, lang, on_progress, fn)
     if suffix in EPUB_EXTENSIONS:
         return _extract_epub(path, on_progress)
 

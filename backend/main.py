@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import io
-import sys
 import uuid
 import zipfile
 from dataclasses import dataclass, field
@@ -11,38 +10,32 @@ from pathlib import Path
 from threading import Lock
 from typing import Literal
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-from docx_builder import build_docx
+from ai_providers import GRAMMAR_INSTRUCTION, ProviderError, get_provider, run_ai_postprocess
+from docx_builder import build_docx, build_docx_from_text
 from ocr import extract_pages
-
-# Em um executável empacotado (PyInstaller), os arquivos ficam extraídos em
-# sys._MEIPASS e o diretório de trabalho não é gravável — por isso os dados
-# do usuário vão para a pasta pessoal em vez de ficar ao lado do código.
-FROZEN = getattr(sys, "frozen", False)
-
-if FROZEN:
-    BASE_DIR = Path(sys._MEIPASS)  # type: ignore[attr-defined]
-    FRONTEND_DIR = BASE_DIR / "frontend"
-    DATA_DIR = Path.home() / ".transcritor"
-else:
-    BASE_DIR = Path(__file__).resolve().parent
-    FRONTEND_DIR = BASE_DIR.parent / "frontend"
-    DATA_DIR = BASE_DIR / "data"
-
-UPLOAD_DIR = DATA_DIR / "uploads"
-OUTPUT_DIR = DATA_DIR / "outputs"
-
-for directory in (UPLOAD_DIR, OUTPUT_DIR):
-    directory.mkdir(parents=True, exist_ok=True)
+from paths import FRONTEND_DIR, OUTPUT_DIR, UPLOAD_DIR
+from settings_store import PROVIDERS, load_settings, masked_settings, save_settings
 
 SUPPORTED_EXTENSIONS = {".pdf", ".epub", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB
 
 JobStatus = Literal["queued", "processing", "done", "error"]
+Stage = Literal["extraindo", "aplicando_ia"]
+
+
+@dataclass
+class TranscribeOptions:
+    lang: str
+    engine: str  # "tesseract" | "ai"
+    ai_provider: str | None
+    post_process: str  # "none" | "grammar" | "custom"
+    custom_instruction: str | None
 
 
 @dataclass
@@ -50,6 +43,7 @@ class Job:
     id: str
     original_filename: str
     status: JobStatus = "queued"
+    stage: Stage = "extraindo"
     pages_done: int = 0
     pages_total: int = 0
     error: str | None = None
@@ -61,6 +55,7 @@ class Job:
             "id": self.id,
             "filename": self.original_filename,
             "status": self.status,
+            "stage": self.stage,
             "pages_done": self.pages_done,
             "pages_total": self.pages_total,
             "error": self.error,
@@ -82,25 +77,59 @@ app.add_middleware(
 )
 
 
-def _run_transcription(job_id: str, upload_path: Path, lang: str, title: str) -> None:
+def _run_transcription(job_id: str, upload_path: Path, options: TranscribeOptions, title: str) -> None:
     with _jobs_lock:
         job = _jobs[job_id]
         job.status = "processing"
+        job.stage = "extraindo"
 
-    def on_progress(done: int, total: int) -> None:
+    def on_extract_progress(done: int, total: int) -> None:
+        with _jobs_lock:
+            job.pages_done = done
+            job.pages_total = total
+
+    def on_ai_progress(done: int, total: int) -> None:
         with _jobs_lock:
             job.pages_done = done
             job.pages_total = total
 
     try:
-        pages = extract_pages(upload_path, lang=lang, on_progress=on_progress)
+        provider = None
+        needs_ai = options.engine == "ai" or options.post_process != "none"
+        if needs_ai:
+            provider = get_provider(options.ai_provider)  # type: ignore[arg-type]
+
+        ocr_fn = provider.transcribe_image if options.engine == "ai" else None
+        pages = extract_pages(upload_path, lang=options.lang, on_progress=on_extract_progress, ocr_fn=ocr_fn)
+
         output_filename = f"{job_id}.docx"
         output_path = OUTPUT_DIR / output_filename
-        build_docx(pages, title=title, output_path=output_path)
+
+        if options.post_process == "none":
+            build_docx(pages, title=title, output_path=output_path)
+        else:
+            with _jobs_lock:
+                job.stage = "aplicando_ia"
+                job.pages_done = 0
+                job.pages_total = 0
+
+            instruction = GRAMMAR_INSTRUCTION if options.post_process == "grammar" else options.custom_instruction
+            full_text = "\n\n".join(page.text for page in pages if page.text.strip())
+            if not full_text.strip():
+                raise ValueError("Nenhum texto foi extraído do documento para processar com IA.")
+
+            processed_text = run_ai_postprocess(
+                full_text, instruction or "", provider, on_progress=on_ai_progress  # type: ignore[arg-type]
+            )
+            build_docx_from_text(processed_text, title=title, output_path=output_path)
 
         with _jobs_lock:
             job.status = "done"
             job.output_filename = output_filename
+    except (ProviderError, ValueError) as exc:
+        with _jobs_lock:
+            job.status = "error"
+            job.error = str(exc)
     except Exception as exc:  # noqa: BLE001 - reportado ao usuário via job.error
         with _jobs_lock:
             job.status = "error"
@@ -113,15 +142,37 @@ def _run_transcription(job_id: str, upload_path: Path, lang: str, title: str) ->
 async def create_transcription(
     background_tasks: BackgroundTasks,
     file: UploadFile,
-    lang: str = "por",
+    lang: str = Form("por"),
+    engine: str = Form("tesseract"),
+    ai_provider: str = Form(""),
+    post_process: str = Form("none"),
+    custom_instruction: str = Form(""),
 ) -> dict:
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail=f"Formato não suportado ({suffix or 'desconhecido'}). "
-            f"Use PDF ou imagem ({', '.join(sorted(SUPPORTED_EXTENSIONS))}).",
+            f"Use um destes: {', '.join(sorted(SUPPORTED_EXTENSIONS))}.",
         )
+
+    if engine not in ("tesseract", "ai"):
+        raise HTTPException(status_code=400, detail="Motor de transcrição inválido.")
+    if post_process not in ("none", "grammar", "custom"):
+        raise HTTPException(status_code=400, detail="Modo de pós-processamento inválido.")
+    if post_process == "custom" and not custom_instruction.strip():
+        raise HTTPException(status_code=400, detail="Escreva a instrução personalizada para a IA.")
+
+    needs_ai = engine == "ai" or post_process != "none"
+    if needs_ai:
+        if ai_provider not in PROVIDERS:
+            raise HTTPException(status_code=400, detail="Selecione um provedor de IA válido.")
+        settings = load_settings()
+        if not settings.get(ai_provider, {}).get("api_key"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Configure a chave de API do provedor selecionado em Configurações.",
+            )
 
     job_id = uuid.uuid4().hex
     upload_path = UPLOAD_DIR / f"{job_id}{suffix}"
@@ -141,7 +192,14 @@ async def create_transcription(
     with _jobs_lock:
         _jobs[job_id] = job
 
-    background_tasks.add_task(_run_transcription, job_id, upload_path, lang, title)
+    options = TranscribeOptions(
+        lang=lang,
+        engine=engine,
+        ai_provider=ai_provider or None,
+        post_process=post_process,
+        custom_instruction=custom_instruction.strip() or None,
+    )
+    background_tasks.add_task(_run_transcription, job_id, upload_path, options, title)
 
     return job.as_dict()
 
@@ -214,6 +272,28 @@ async def download_job(job_id: str) -> FileResponse:
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=download_name,
     )
+
+
+class ProviderSettings(BaseModel):
+    api_key: str | None = None
+    model: str | None = None
+
+
+class SettingsUpdate(BaseModel):
+    anthropic: ProviderSettings | None = None
+    openai: ProviderSettings | None = None
+    google: ProviderSettings | None = None
+
+
+@app.get("/api/settings")
+async def get_settings() -> dict:
+    return masked_settings()
+
+
+@app.post("/api/settings")
+async def update_settings(payload: SettingsUpdate) -> dict:
+    save_settings(payload.model_dump(exclude_none=True))
+    return masked_settings()
 
 
 if FRONTEND_DIR.exists():

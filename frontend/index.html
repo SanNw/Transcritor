@@ -39,6 +39,7 @@
         </div>
         <p class="subtitle">Livros, revistas, PDFs e EPUBs transformados em manuscritos .docx</p>
       </div>
+      <button id="open-settings" class="btn btn-secondary settings-btn" type="button">Configurações de IA</button>
     </header>
 
     <main>
@@ -56,16 +57,58 @@
         </div>
       </form>
 
-      <div class="toolbar">
-        <div class="options">
-          <label for="lang-select">Idioma do OCR</label>
-          <select id="lang-select">
-            <option value="por" selected>Português</option>
-            <option value="eng">Inglês</option>
-            <option value="por+eng">Português + Inglês</option>
-          </select>
+      <div class="options-panel">
+        <div class="options-row">
+          <div class="options">
+            <label for="lang-select">Idioma</label>
+            <select id="lang-select">
+              <option value="por" selected>Português</option>
+              <option value="eng">Inglês</option>
+              <option value="por+eng">Português + Inglês</option>
+            </select>
+          </div>
+
+          <div class="options">
+            <label for="engine-select">Motor de transcrição</label>
+            <select id="engine-select">
+              <option value="tesseract" selected>Tesseract (local, grátis)</option>
+              <option value="ai">Inteligência artificial</option>
+            </select>
+          </div>
+
+          <div class="options">
+            <label for="postprocess-select">Pós-processamento</label>
+            <select id="postprocess-select">
+              <option value="none" selected>Nenhum</option>
+              <option value="grammar">Corrigir e formatar como livro</option>
+              <option value="custom">Instrução personalizada</option>
+            </select>
+          </div>
         </div>
 
+        <div class="options-row" id="provider-row" hidden>
+          <div class="options">
+            <label for="provider-select">Provedor de IA</label>
+            <select id="provider-select">
+              <option value="anthropic">Anthropic Claude</option>
+              <option value="openai">OpenAI</option>
+              <option value="google">Google Gemini</option>
+            </select>
+          </div>
+          <p class="provider-hint" id="provider-hint"></p>
+        </div>
+
+        <div class="options-row" id="custom-instruction-row" hidden>
+          <textarea
+            id="custom-instruction"
+            class="instruction-input"
+            rows="2"
+            placeholder="Ex.: resuma esta obra em até 2 páginas · traduza para o inglês · liste os personagens principais"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="toolbar">
         <button id="download-all" class="btn btn-secondary" type="button" hidden>
           Baixar tudo (.zip)
         </button>
@@ -73,6 +116,45 @@
 
       <section id="jobs" class="jobs" aria-live="polite"></section>
     </main>
+  </div>
+
+  <div id="settings-overlay" class="overlay" hidden>
+    <div class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="ornament" role="presentation">
+        <span class="ornament-line"></span>
+        <span class="ornament-diamond"></span>
+        <span class="ornament-line"></span>
+      </div>
+      <h2 id="settings-title">Configurações de IA</h2>
+      <p class="settings-note">
+        As chaves ficam salvas apenas nesta máquina, em texto puro, e são usadas para chamar a
+        API do provedor escolhido diretamente. Nunca são enviadas a nenhum outro serviço.
+      </p>
+
+      <div class="settings-provider" data-provider="anthropic">
+        <h3>Anthropic Claude</h3>
+        <p class="settings-status" data-status>Não configurado</p>
+        <input type="password" class="settings-input" data-key-input placeholder="Chave de API (sk-ant-...)" />
+      </div>
+
+      <div class="settings-provider" data-provider="openai">
+        <h3>OpenAI</h3>
+        <p class="settings-status" data-status>Não configurado</p>
+        <input type="password" class="settings-input" data-key-input placeholder="Chave de API (sk-...)" />
+      </div>
+
+      <div class="settings-provider" data-provider="google">
+        <h3>Google Gemini</h3>
+        <p class="settings-status" data-status>Não configurado</p>
+        <input type="password" class="settings-input" data-key-input placeholder="Chave de API (AIza...)" />
+      </div>
+
+      <div class="settings-actions">
+        <button id="close-settings" class="btn btn-secondary" type="button">Fechar</button>
+        <button id="save-settings" class="btn btn-primary" type="button">Salvar chaves</button>
+      </div>
+      <p class="settings-feedback" id="settings-feedback" aria-live="polite"></p>
+    </div>
   </div>
 
   <template id="job-template">
